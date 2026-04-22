@@ -184,8 +184,32 @@ run_memory:
 	@command -v valgrind >/dev/null 2>&1 || { echo "valgrind is required for run_memory. Install it with: sudo apt-get install -y valgrind"; exit 1; }
 	+@$(MAKE) --no-print-directory clean
 	+@$(MAKE) --no-print-directory debug MODE="$(MODE)" INPUTFILE="$(INPUTFILE)"
-	@echo running: $(INPUTFILE) with valgrind
-	@valgrind --leak-check=full \
+	@if [ -n "$(RUN_DIR)" ]; then \
+		export QUANTAS_RUN_DIR="$(RUN_DIR)"; \
+	elif [ -z "$$QUANTAS_RUN_DIR" ]; then \
+		export QUANTAS_RUN_DIR="$(CURDIR)/experiments/$$(date +%Y%m%d_%H%M%S)"; \
+	fi; \
+	mkdir -p "$$QUANTAS_RUN_DIR"; \
+	if [ -z "$$QUANTAS_HOSTNAME" ]; then \
+		export QUANTAS_HOSTNAME="$$(hostname -f 2>/dev/null || hostname)"; \
+	fi; \
+	if [ -z "$$QUANTAS_MACHINE_IP" ]; then \
+		export QUANTAS_MACHINE_IP="$$(hostname -I 2>/dev/null | awk '{print $$1}')"; \
+	fi; \
+	if [ -z "$$QUANTAS_PROCESS_ROLE" ]; then \
+		if [ "$(MODE)" = "concrete" ]; then \
+			if [ -n "$(PORT)" ]; then \
+				export QUANTAS_PROCESS_ROLE="leader"; \
+			else \
+				export QUANTAS_PROCESS_ROLE="follower"; \
+			fi; \
+		else \
+			export QUANTAS_PROCESS_ROLE="abstract"; \
+		fi; \
+	fi; \
+	if [ -z "$$QUANTAS_MACHINE_IP" ]; then export QUANTAS_MACHINE_IP="unknown"; fi; \
+	echo running: $(INPUTFILE) with valgrind; \
+	valgrind --leak-check=full \
          --show-leak-kinds=all \
          --track-origins=yes \
 		 ./$(EXE) $(INPUTFILE)
@@ -195,11 +219,35 @@ run_simple_memory:
 	@command -v valgrind >/dev/null 2>&1 || { echo "valgrind is required for run_simple_memory/make test. Install it with: sudo apt-get install -y valgrind"; exit 1; }
 	+@$(MAKE) --no-print-directory clean
 	+@$(MAKE) --no-print-directory debug MODE="$(MODE)" INPUTFILE="$(INPUTFILE)"
-	@echo ""
-	@echo running: $(INPUTFILE) with valgrind
-	@valgrind --leak-check=full ./$(EXE) $(INPUTFILE) 2>&1 \
-		| grep -E "HEAP SUMMARY|in use|LEAK SUMMARY|definitely lost: |indirectly lost: |possibly lost: |still reachable: |ERROR SUMMARY"
-	@echo ""
+	@if [ -n "$(RUN_DIR)" ]; then \
+		export QUANTAS_RUN_DIR="$(RUN_DIR)"; \
+	elif [ -z "$$QUANTAS_RUN_DIR" ]; then \
+		export QUANTAS_RUN_DIR="$(CURDIR)/experiments/$$(date +%Y%m%d_%H%M%S)"; \
+	fi; \
+	mkdir -p "$$QUANTAS_RUN_DIR"; \
+	if [ -z "$$QUANTAS_HOSTNAME" ]; then \
+		export QUANTAS_HOSTNAME="$$(hostname -f 2>/dev/null || hostname)"; \
+	fi; \
+	if [ -z "$$QUANTAS_MACHINE_IP" ]; then \
+		export QUANTAS_MACHINE_IP="$$(hostname -I 2>/dev/null | awk '{print $$1}')"; \
+	fi; \
+	if [ -z "$$QUANTAS_PROCESS_ROLE" ]; then \
+		if [ "$(MODE)" = "concrete" ]; then \
+			if [ -n "$(PORT)" ]; then \
+				export QUANTAS_PROCESS_ROLE="leader"; \
+			else \
+				export QUANTAS_PROCESS_ROLE="follower"; \
+			fi; \
+		else \
+			export QUANTAS_PROCESS_ROLE="abstract"; \
+		fi; \
+	fi; \
+	if [ -z "$$QUANTAS_MACHINE_IP" ]; then export QUANTAS_MACHINE_IP="unknown"; fi; \
+	echo ""; \
+	echo running: $(INPUTFILE) with valgrind; \
+	valgrind --leak-check=full ./$(EXE) $(INPUTFILE) 2>&1 \
+		| grep -E "HEAP SUMMARY|in use|LEAK SUMMARY|definitely lost: |indirectly lost: |possibly lost: |still reachable: |ERROR SUMMARY"; \
+	echo ""
 
 # runs the program with GDB for more advanced error viewing
 run_debug:
