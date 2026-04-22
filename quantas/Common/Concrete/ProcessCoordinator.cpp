@@ -19,6 +19,7 @@
 #include "ipUtil.hpp"
 #include "../LoggingSupport.hpp"
 #include "../Logger.hpp"
+#include "../RandomUtil.hpp"
 #include "../RoundManager.hpp"
 
 namespace quantas {
@@ -123,8 +124,7 @@ TopologyResult buildTopology(const nlohmann::json& topology) {
     std::iota(ids.begin(), ids.end(), 0);
 
     if (topology.value("identifiers", "") == "random") {
-        static thread_local std::mt19937 rng(std::random_device{}());
-        std::shuffle(ids.begin(), ids.end(), rng);
+        std::shuffle(ids.begin(), ids.end(), threadLocalEngine());
     }
 
     auto addUndirectedEdge = [&](interfaceId a, interfaceId b) {

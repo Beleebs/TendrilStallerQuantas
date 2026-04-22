@@ -1,4 +1,5 @@
 #include "Network.hpp"
+#include "../RandomUtil.hpp"
 
 namespace quantas {
 
@@ -35,8 +36,7 @@ void Network::initNetwork(json topology) {
     }
 
     if (topology.value("identifiers", "") == "random") {
-        static std::mt19937 rng(std::random_device{}());
-        std::shuffle(_peers.begin(), _peers.end(), rng);
+        std::shuffle(_peers.begin(), _peers.end(), threadLocalEngine());
     }
 
     // pick the topology

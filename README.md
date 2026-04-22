@@ -136,6 +136,7 @@ Every experiment object can contain:
 - `id`: Output destination for metrics. Use a filename to create/append to that file, or `"cout"` to emit JSON metrics on stdout.
 - `threadCount`: Desired worker threads for message delivery and computation. The runtime caps this at the number of peers.
 - `tests`: Repeat count for the experiment (default 1). Each repetition re-initialises the topology and random seeds.
+- `seed`: Optional unsigned integer used to seed the experiment's pseudo-random behavior. If omitted, QUANTAS generates a random seed and records the actual per-test seed in the output JSON.
 - `rounds`: Number of synchronous rounds to execute per test.
 - `distribution`: Network/channel configuration (see below).
 - `topology`: Initial network description (see below).
@@ -194,6 +195,7 @@ Feel free to embed nested objects or arrays if your algorithm benefits from rich
 ```json
 {
   "id": "PBFTByzantine_04",
+  "seed": 1004,
   "threadCount": 48,
   "distribution": {
     "type": "UNIFORM",

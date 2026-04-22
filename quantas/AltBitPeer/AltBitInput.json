@@ -5,6 +5,7 @@
   "experiments": [
     {
       "id": "AltBitdropProb0",
+      "seed": 1000,
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
@@ -24,6 +25,7 @@
     },
     {
       "id": "AltBitdropProb10",
+      "seed": 1010,
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
@@ -43,6 +45,7 @@
     },
     {
       "id": "AltBitdropProb25",
+      "seed": 1025,
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
@@ -62,6 +65,7 @@
     },
     {
       "id": "AltBitdropProb50",
+      "seed": 1050,
       "threadCount": 1,
       "distribution": {
         "type": "uniform",

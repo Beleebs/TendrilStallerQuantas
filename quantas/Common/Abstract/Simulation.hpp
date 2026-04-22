@@ -24,6 +24,7 @@ You should have received a copy of the GNU General Public License along with QUA
 #include "../BS_thread_pool.hpp"
 #include "../memoryUtil.hpp"
 #include "../Logger.hpp"
+#include "../RandomUtil.hpp"
 
 using std::ofstream;
 using std::thread;
@@ -52,11 +53,26 @@ namespace quantas {
 			_threadCount = config["topology"]["initialPeers"];
 		}
 		int networkSize = static_cast<int>(config["topology"]["initialPeers"]);
+		const bool hasConfiguredSeed = config.contains("seed");
+		const uint32_t configuredSeed = hasConfiguredSeed
+			? static_cast<uint32_t>(config["seed"].get<uint64_t>())
+			: 0;
+		OutputWriter::setValue("seedSpecified", hasConfiguredSeed);
+		if (hasConfiguredSeed) {
+			OutputWriter::setValue("seed", configuredSeed);
+		}
+		std::vector<uint32_t> testSeeds;
 		
 		BS::thread_pool pool(_threadCount);
 		for (int i = 0; i < config["tests"]; i++) {
 			QUANTAS_LOG_INFO("runner") << "starting test " << i;
 			OutputWriter::instance()->setTest(i);
+			const uint32_t testSeed = hasConfiguredSeed
+				? configuredSeed + static_cast<uint32_t>(i)
+				: randomSeed();
+			setRandomSeed(testSeed);
+			testSeeds.push_back(testSeed);
+			OutputWriter::setTestValue("seed", testSeed);
 			RoundManager::instance()->setCurrentRound(0);
 			RoundManager::instance()->setLastRound(config["rounds"]);
 			// Configure the delay properties and initial topology of the network
@@ -84,6 +100,7 @@ namespace quantas {
 			}
 			system.endOfExperiment();
 		}
+		OutputWriter::setValue("testSeeds", testSeeds);
 		
 		endTime = std::chrono::high_resolution_clock::now();
    		duration = endTime - startTime;

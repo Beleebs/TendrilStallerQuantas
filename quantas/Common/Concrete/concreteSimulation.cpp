@@ -3,11 +3,13 @@
 #include <iostream>
 #include <optional>
 #include <thread>
+#include <vector>
 
 #include "../LoggingSupport.hpp"
 #include "../Logger.hpp"
 #include "../OutputWriter.hpp"
 #include "../Peer.hpp"
+#include "../RandomUtil.hpp"
 #include "../RoundManager.hpp"
 #include "../memoryUtil.hpp"
 #include "NetworkInterfaceConcrete.hpp"
@@ -76,6 +78,11 @@ int main(int argc, char** argv) {
         }
 
         const std::string logFileBase = chooseLogFileBase(config, experiment);
+        const bool hasConfiguredSeed = experiment.contains("seed");
+        const uint32_t actualSeed = hasConfiguredSeed
+            ? static_cast<uint32_t>(experiment["seed"].get<uint64_t>())
+            : randomSeed();
+        setRandomSeed(actualSeed);
 
         coordinator.configureProcess(config,
                                      experiment,
@@ -123,6 +130,11 @@ int main(int argc, char** argv) {
 
         const std::string metricsFile = makeExperimentFileName(logFileBase, expIndex, portForLog, ".json");
         OutputWriter::setLogFile(metricsFile);
+        OutputWriter::setValue("seedSpecified", hasConfiguredSeed);
+        OutputWriter::setValue("seed", actualSeed);
+        OutputWriter::setValue("testSeeds", std::vector<uint32_t>{actualSeed});
+        OutputWriter::instance()->setTest(0);
+        OutputWriter::setTestValue("seed", actualSeed);
 
         QUANTAS_LOG_INFO("runner") << "starting experiment " << expIndex;
         QUANTAS_LOG_INFO("runner") << "received " << assignments.size() << " assignments.";
@@ -146,7 +158,6 @@ int main(int argc, char** argv) {
 
         const auto startTime = std::chrono::high_resolution_clock::now();
 
-        OutputWriter::instance()->setTest(0);
         RoundManager::asynchronous();
         RoundManager::setCurrentRound(0);
         coordinator.markReady();

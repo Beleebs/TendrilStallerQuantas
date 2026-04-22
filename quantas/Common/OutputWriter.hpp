@@ -91,6 +91,13 @@ namespace quantas {
             inst->data[key] = val;
         }
 
+        template <typename T>
+        static void setTestValue(const std::string& key, const T& val) {
+            OutputWriter* inst = instance();
+            std::lock_guard<std::mutex> lock(inst->_mutex);
+            inst->data["tests"][inst->_test][key] = val;
+        }
+
     private:
         std::ofstream _file_stream;
         std::ostream* _log_stream = nullptr;
