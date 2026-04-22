@@ -20,7 +20,7 @@
 # Configure this for the specific input file.
 # Make sure to include the path to the input file 
 
-INPUTFILE := quantas/ExamplePeer/ExampleInput.json
+# INPUTFILE := quantas/ExamplePeer/ExampleInput.json
 # INPUTFILE := quantas/ExamplePeer/ExampleConcreteInput.json
 
 # INPUTFILE := quantas/AltBitPeer/AltBitInput.json
@@ -29,6 +29,7 @@ INPUTFILE := quantas/ExamplePeer/ExampleInput.json
 
 # INPUTFILE := quantas/BitcoinPeer/BitcoinPeerInput.json
 # INPUTFILE := quantas/BitcoinPeer/BitcoinConcreteInput.json
+INPUTFILE := quantas/BitcoinPeer/BitcoinParasiteSweep.json
 
 # INPUTFILE := quantas/EthereumPeer/EthereumPeerInput.json
 

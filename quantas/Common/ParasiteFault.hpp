@@ -31,8 +31,10 @@ namespace quantas {
 // public chain by the configured lead threshold.
 class ParasiteFault : public Fault {
 public:
-    ParasiteFault(int leadThreshold, const std::set<interfaceId>& collaborators)
-        : _leadThreshold(std::max(1, leadThreshold)), _collaborators(collaborators) {}
+    ParasiteFault(int leadThreshold, int publicBlockThreshold, const std::set<interfaceId>& collaborators)
+        : _leadThreshold(std::max(1, leadThreshold)),
+          _publicBlockThreshold(std::max(0, publicBlockThreshold)),
+          _collaborators(collaborators) {}
 
     virtual ~ParasiteFault() = default;
 
@@ -90,8 +92,12 @@ public:
     }
 
     bool onPerformComputation(Peer* peer) override {
-        std::vector<std::string> parents = selectPrivateParents();
         if (auto* powPeer = dynamic_cast<PoWPeer*>(peer)) {
+            std::vector<std::string> parents = selectPrivateParents();
+            if (parents.empty()) {
+                PoW* group = powPeer->pow();
+                parents.push_back(group ? group->bestHash() : "GENESIS");
+            }
             powPeer->runProtocolStep(parents);
             return true;
         }
@@ -138,6 +144,9 @@ private:
                     if (parent.is_string()) stored.parents.push_back(parent.get<std::string>());
                 }
             }
+            if (_privateChain.empty()) {
+                _privateBaseHeight = inferBaseHeight(stored);
+            }
             _privateHeight = std::max(_privateHeight, stored.height);
             _privateChain.push_back(std::move(stored));
         }
@@ -145,6 +154,7 @@ private:
 
     void tryRelease(Peer* peer) {
         if (_privateChain.empty()) return;
+        if (_publicHeight < _privateBaseHeight + _publicBlockThreshold) return;
         if (_privateHeight < _publicHeight + _leadThreshold) return;
 
         // Release everything in height order so honest peers see a coherent alternative chain.
@@ -164,8 +174,14 @@ private:
         }
         _publicHeight = std::max(_publicHeight, _privateHeight);
         _privateHeight = 0;
+        _privateBaseHeight = _publicHeight;
         _privateChain.clear();
         _privateHashes.clear();
+    }
+
+    int inferBaseHeight(const StoredBlock& block) const {
+        if (block.height <= 0) return _publicHeight;
+        return std::max(_publicHeight, block.height - 1);
     }
 
     int extractHeight(const json& msg) const {
@@ -181,10 +197,12 @@ private:
     }
 
     int _leadThreshold;
+    int _publicBlockThreshold;
     std::set<interfaceId> _collaborators;
     std::vector<StoredBlock> _privateChain;
     std::unordered_set<std::string> _privateHashes;
     int _privateHeight = 0;
+    int _privateBaseHeight = 0;
     int _publicHeight = 0;
 };
 

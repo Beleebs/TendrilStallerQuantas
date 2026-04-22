@@ -138,6 +138,7 @@ void EthereumPeer::initParameters(const std::vector<Peer*>& _peers, json paramet
     if (parameters.contains("parasiteFault") && parameters["parasiteFault"].is_object()) {
         const auto& parasiteCfg = parameters["parasiteFault"];
         int leadThreshold = parasiteCfg.value("leadThreshold", 1);
+        int publicBlockThreshold = parasiteCfg.value("publicBlockThreshold", 0);
         std::set<size_t> parasiteIndices;
         if (parasiteCfg.contains("peerIndices") && parasiteCfg["peerIndices"].is_array()) {
             for (const auto& idxVal : parasiteCfg["peerIndices"]) {
@@ -164,7 +165,7 @@ void EthereumPeer::initParameters(const std::vector<Peer*>& _peers, json paramet
             EthereumPeer* attacker = peers[idx];
             std::set<interfaceId> collaborators = parasiteIds;
             collaborators.erase(attacker->publicId());
-            attacker->faultManager.addFault(new ParasiteFault(leadThreshold, collaborators));
+            attacker->faultManager.addFault(new ParasiteFault(leadThreshold, publicBlockThreshold, collaborators));
         }
     }
 }
@@ -434,6 +435,7 @@ void EthereumPeer::checkInStrm() {
     while (!inStreamEmpty()) {
         Packet packet = popInStream();
         json msg = packet.getMessage();
+        if (faultManager.applyReceive(this, msg, packet.sourceId())) continue;
         if (!msg.contains("type") || msg["type"] != "PoW") continue;
 
         const std::string messageType = msg.value("messageType", std::string());
