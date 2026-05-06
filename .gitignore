@@ -24,4 +24,4 @@ enc_temp_folder/
 experiments/*
 !experiments/.gitkeep
 !experiments
-available_hosts.txt
+/available_hosts.txt
