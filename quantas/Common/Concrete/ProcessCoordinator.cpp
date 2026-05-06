@@ -2,6 +2,7 @@
 
 #include <arpa/inet.h>
 #include <csignal>
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <chrono>
@@ -12,6 +13,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <stdexcept>
 
@@ -31,6 +33,7 @@ constexpr const char* kTypeAssignment = "assignment";
 constexpr const char* kTypeReady = "ready";
 constexpr const char* kTypeStart = "start";
 constexpr const char* kTypeStop = "stop";
+constexpr const char* kTypeStopRequest = "stop_request";
 constexpr const char* kTypePeerDone = "peer_done";
 constexpr const char* kTypeMessage = "message";
 
@@ -51,6 +54,28 @@ std::string getenvOrFallback(const char* name, const std::string& fallback) {
         return fallback;
     }
     return std::string(value);
+}
+
+std::optional<bool> getenvBool(const char* name) {
+    if (name == nullptr) {
+        return std::nullopt;
+    }
+    const char* value = std::getenv(name);
+    if (value == nullptr || *value == '\0') {
+        return std::nullopt;
+    }
+
+    std::string normalized(value);
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(),
+                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+
+    if (normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "y") {
+        return true;
+    }
+    if (normalized == "0" || normalized == "false" || normalized == "no" || normalized == "n") {
+        return false;
+    }
+    return std::nullopt;
 }
 
 std::string readSocketMessage(int socketFd) {
@@ -212,6 +237,31 @@ TopologyResult buildTopology(const nlohmann::json& topology) {
             interfaceId b = ids[static_cast<size_t>((i + 1) % initialPeers)];
             addDirectedEdge(a, b);
         }
+    } else if (type == "chord") {
+        const size_t maxSkip = static_cast<size_t>(initialPeers - 1);
+        for (int i = 0; i < initialPeers; ++i) {
+            interfaceId source = ids[static_cast<size_t>(i)];
+            for (size_t skip = 1; skip <= maxSkip; skip <<= 1) {
+                interfaceId target = ids[static_cast<size_t>((static_cast<size_t>(i) + skip) %
+                                                             static_cast<size_t>(initialPeers))];
+                addDirectedEdge(source, target);
+            }
+        }
+    } else if (type == "kademlia") {
+        int bits = static_cast<int>(std::ceil(std::log2(static_cast<double>(initialPeers))));
+        if (bits <= 0) {
+            bits = 1;
+        }
+
+        for (int i = 0; i < initialPeers; ++i) {
+            interfaceId source = ids[static_cast<size_t>(i)];
+            for (int bit = 0; bit < bits; ++bit) {
+                int neighborIndex = i ^ (1 << bit);
+                if (neighborIndex < 0 || neighborIndex >= initialPeers || neighborIndex == i) continue;
+                interfaceId target = ids[static_cast<size_t>(neighborIndex)];
+                addDirectedEdge(source, target);
+            }
+        }
     } else if (type == "userList") {
         const auto it = topology.find("list");
         if (it != topology.end() && it->is_object()) {
@@ -277,13 +327,14 @@ void ProcessCoordinator::configureProcess(const nlohmann::json& rootConfig,
                                           bool isLeader,
                                           std::optional<int> explicitPort,
                                           size_t experimentIndex,
+                                          size_t runIndex,
                                           const std::string& logFileBase) {
     std::scoped_lock configLock(_configurationMutex);
     _rootConfig = rootConfig;
     _experimentConfig = experimentConfig;
     _peerType = peerType;
-    _experimentIndex = experimentIndex;
-    _totalPeers = experimentConfig["topology"].value("initialPeers", 0);
+    _experimentIndex = runIndex;
+    _initialpeers = experimentConfig["topology"].value("initialPeers", 0);
 
     _assignmentsReady = false;
     _startSignal = false;
@@ -315,6 +366,11 @@ void ProcessCoordinator::configureProcess(const nlohmann::json& rootConfig,
         _processes.clear();
         _registrationOrder.clear();
     }
+    _localEnqueueCount = 0;
+    _remoteSendAttemptCount = 0;
+    _remoteSendSuccessCount = 0;
+    _remoteSendFailureCount = 0;
+    _inboundMessageCount = 0;
 
     const auto concreteIt = experimentConfig.find("concrete");
     if (concreteIt == experimentConfig.end() && !rootConfig.contains("concrete")) {
@@ -360,17 +416,17 @@ void ProcessCoordinator::configureProcess(const nlohmann::json& rootConfig,
     }
     _stopCondition = condition;
 
-    nlohmann::json leaderJson;
-    if (concreteIt != experimentConfig.end() && concreteIt->contains("leader")) {
-        leaderJson = (*concreteIt)["leader"];
-    } else if (rootConfig.contains("concrete") && rootConfig["concrete"].contains("leader")) {
-        leaderJson = rootConfig["concrete"]["leader"];
-    } else if (rootConfig.contains("leader")) {
-        leaderJson = rootConfig["leader"];
+    _leaderIp.clear();
+    _leaderPort = -1;
+
+    const std::string leaderIpOverride = getenvOrFallback("QUANTAS_LEADER_IP", "");
+    if (!leaderIpOverride.empty()) {
+        _leaderIp = leaderIpOverride;
     }
-    _leaderIp = leaderJson.value("ip", "");
-    _leaderPort = leaderJson.value("port", -1);
-    _leaderId = leaderJson.value("id", 0);
+    const std::string leaderPortOverride = getenvOrFallback("QUANTAS_LEADER_PORT", "");
+    if (!leaderPortOverride.empty()) {
+        _leaderPort = std::stoi(leaderPortOverride);
+    }
 
     _myIp = get_local_ip();
     if (_myIp.empty()) {
@@ -390,7 +446,20 @@ void ProcessCoordinator::configureProcess(const nlohmann::json& rootConfig,
         throw std::runtime_error("Unable to determine listening port for process.");
     }
 
-    _isLeader = isLeader;
+    _isLeader = getenvBool("QUANTAS_IS_LEADER").value_or(isLeader);
+    if (_isLeader) {
+        if (_leaderIp.empty()) {
+            _leaderIp = _myIp;
+        }
+        if (_leaderPort <= 0) {
+            _leaderPort = _myPort;
+        }
+    }
+    if (!_isLeader && (_leaderIp.empty() || _leaderPort <= 0)) {
+        throw std::runtime_error(
+            "Concrete follower missing leader endpoint. Provide QUANTAS_LEADER_IP and "
+            "QUANTAS_LEADER_PORT at launch time, or keep the legacy concrete.leader block.");
+    }
     if (!_leaderIp.empty() && _myIp == _leaderIp && _myPort == _leaderPort) {
         _isLeader = true;
     }
@@ -423,7 +492,7 @@ void ProcessCoordinator::configureProcess(const nlohmann::json& rootConfig,
     QUANTAS_LOG_DEBUG("coord") << "run directory = "
                                << (runDirectory.empty() ? "<unset>" : runDirectory);
 
-    QUANTAS_LOG_INFO("coord") << "configuring process. totalPeers=" << _totalPeers
+    QUANTAS_LOG_INFO("coord") << "configuring process. initialpeers=" << _initialpeers
                               << " peersPerProcess=" << _peersPerProcess;
     QUANTAS_LOG_DEBUG("coord") << "local IP resolved to " << _myIp;
     QUANTAS_LOG_INFO("coord") << "binding listener on port " << _myPort;
@@ -564,6 +633,8 @@ void ProcessCoordinator::processMessage(const std::string& remoteIp, int remoteP
         handleStart();
     } else if (type == kTypeStop) {
         handleStop();
+    } else if (type == kTypeStopRequest && _isLeader) {
+        handleStopRequest(remoteIp, remotePort, msg);
     } else if (type == kTypePeerDone && _isLeader) {
         interfaceId peerId = msg.value("peerId", static_cast<interfaceId>(NO_PEER_ID));
         handlePeerDone(remoteIp, remotePort, peerId);
@@ -593,7 +664,7 @@ void ProcessCoordinator::handleRegister(const std::string& remoteIp, int remoteP
             record.ready = existing->second.ready;
             existing->second = record;
             canResendAssignment = !_startSignal.load() &&
-                                  static_cast<int>(_allPeers.size()) >= _totalPeers &&
+                                  static_cast<int>(_allPeers.size()) >= _initialpeers &&
                                   !record.assignedPeers.empty();
         }
 
@@ -640,7 +711,7 @@ void ProcessCoordinator::handlePeerDone(const std::string&, int, interfaceId pee
     {
         std::scoped_lock lock(_completedMutex);
         _completedPeers.insert(peerId);
-        if (static_cast<int>(_completedPeers.size()) >= _totalPeers) {
+        if (static_cast<int>(_completedPeers.size()) >= _initialpeers) {
             shouldBroadcast = true;
         }
     }
@@ -648,6 +719,16 @@ void ProcessCoordinator::handlePeerDone(const std::string&, int, interfaceId pee
     if (shouldBroadcast) {
         broadcastStop("peer_done");
     }
+}
+
+void ProcessCoordinator::handleStopRequest(const std::string& remoteIp, int remotePort, const nlohmann::json& msg) {
+    interfaceId requester = msg.value("peerId", static_cast<interfaceId>(NO_PEER_ID));
+    const std::string reason = msg.value("reason", "peer_requested_stop");
+    QUANTAS_LOG_INFO("coord") << "stop request received from "
+                              << remoteIp << ":" << remotePort
+                              << " peerId=" << requester
+                              << " reason=" << reason;
+    broadcastStop(reason);
 }
 
 void ProcessCoordinator::distributeAssignmentsIfReady() {
@@ -667,14 +748,14 @@ void ProcessCoordinator::distributeAssignmentsIfReady() {
         }
     }
     QUANTAS_LOG_DEBUG("coord") << "distributeAssignments check. totalRequested=" << totalRequested
-                               << " required=" << _totalPeers;
-    if (totalRequested < _totalPeers) {
+                               << " required=" << _initialpeers;
+    if (totalRequested < _initialpeers) {
         return;
     }
 
     TopologyResult topology = buildTopology(_experimentConfig["topology"]);
     std::unordered_map<interfaceId, PeerEndpoint> endpoints;
-    endpoints.reserve(_totalPeers);
+    endpoints.reserve(_initialpeers);
     std::vector<ProcessEndpointRange> ranges;
     ranges.reserve(order.size());
 
@@ -684,7 +765,7 @@ void ProcessCoordinator::distributeAssignmentsIfReady() {
         if (it == snapshot.end()) continue;
         it->second.assignedPeers.clear();
         const int firstAssigned = nextId;
-        int available = std::min(it->second.requestedPeers, _totalPeers - nextId);
+        int available = std::min(it->second.requestedPeers, _initialpeers - nextId);
         for (int i = 0; i < available; ++i) {
             interfaceId assigned = static_cast<interfaceId>(nextId++);
             it->second.assignedPeers.push_back(assigned);
@@ -702,7 +783,7 @@ void ProcessCoordinator::distributeAssignmentsIfReady() {
             range.port = it->second.port;
             ranges.push_back(range);
         }
-        if (nextId >= _totalPeers) break;
+        if (nextId >= _initialpeers) break;
     }
 
     {
@@ -825,7 +906,23 @@ void ProcessCoordinator::handleAssignment(const nlohmann::json& msg) {
 
 std::vector<ProcessCoordinator::PeerAssignment> ProcessCoordinator::waitForAssignments() {
     std::unique_lock lock(_assignmentMutex);
-    _assignmentCv.wait(lock, [&]() { return _assignmentsReady.load(); });
+    while (!_assignmentsReady.load()) {
+        const auto status = _assignmentCv.wait_for(lock, std::chrono::seconds(2));
+        if (_assignmentsReady.load()) {
+            break;
+        }
+        if (status == std::cv_status::timeout) {
+            lock.unlock();
+            if (_isLeader) {
+                QUANTAS_LOG_WARN("coord") << "still waiting for follower registrations/assignments.";
+                distributeAssignmentsIfReady();
+            } else {
+                QUANTAS_LOG_WARN("coord") << "assignment wait timed out; re-sending registration to leader.";
+                sendRegistrationToLeader();
+            }
+            lock.lock();
+        }
+    }
     QUANTAS_LOG_DEBUG("coord") << "waitForAssignments returning "
                                << _localAssignments.size() << " assignments.";
     return _localAssignments;
@@ -883,7 +980,7 @@ void ProcessCoordinator::broadcastStartIfReady() {
             }
         }
     }
-    if (!allReady || totalRequested < _totalPeers || records.empty()) {
+    if (!allReady || totalRequested < _initialpeers || records.empty()) {
         std::ostringstream waitingOn;
         for (size_t i = 0; i < notReadyKeys.size(); ++i) {
             if (i != 0) {
@@ -893,7 +990,7 @@ void ProcessCoordinator::broadcastStartIfReady() {
         }
         QUANTAS_LOG_DEBUG("coord") << "start gate blocked. allReady=" << (allReady ? "true" : "false")
                                    << " totalRequested=" << totalRequested
-                                   << " required=" << _totalPeers
+                                   << " required=" << _initialpeers
                                    << " records=" << records.size()
                                    << " waitingOn=[" << waitingOn.str() << "]";
         return;
@@ -955,7 +1052,7 @@ void ProcessCoordinator::notifyPeerStopped(interfaceId id) {
         {
             std::scoped_lock lock(_completedMutex);
             _completedPeers.insert(id);
-            if (static_cast<int>(_completedPeers.size()) >= _totalPeers) {
+            if (static_cast<int>(_completedPeers.size()) >= _initialpeers) {
                 shouldBroadcast = true;
             }
         }
@@ -970,6 +1067,25 @@ void ProcessCoordinator::notifyPeerStopped(interfaceId id) {
         };
         sendJson(_leaderIp, _leaderPort, msg);
     }
+}
+
+void ProcessCoordinator::requestExperimentStop(interfaceId id, const std::string& reason) {
+    if (id == NO_PEER_ID) {
+        return;
+    }
+
+    if (_isLeader) {
+        broadcastStop(reason);
+        return;
+    }
+
+    nlohmann::json msg = {
+        {"type", kTypeStopRequest},
+        {"experimentIndex", _experimentIndex},
+        {"peerId", id},
+        {"reason", reason}
+    };
+    sendJson(_leaderIp, _leaderPort, msg);
 }
 
 void ProcessCoordinator::handleStop() {
@@ -1049,6 +1165,7 @@ void ProcessCoordinator::enqueueInbound(interfaceId to, interfaceId from, const 
         std::scoped_lock lock(_inboundMutex);
         _inboundQueues[to].push_back(packet);
     }
+    ++_localEnqueueCount;
 }
 
 void ProcessCoordinator::drainInbound(interfaceId id, std::deque<Packet>& target) {
@@ -1068,6 +1185,7 @@ void ProcessCoordinator::handleInboundMessage(const nlohmann::json& msg) {
     interfaceId to = msg.value("to_id", static_cast<interfaceId>(NO_PEER_ID));
     interfaceId from = msg.value("from_id", static_cast<interfaceId>(NO_PEER_ID));
     nlohmann::json body = msg.value("body", nlohmann::json::object());
+    ++_inboundMessageCount;
 
     {
         std::scoped_lock lock(_interfaceMutex);
@@ -1114,6 +1232,26 @@ bool ProcessCoordinator::ownsPeer(interfaceId id) const {
 
 ProcessCoordinator::StopCondition ProcessCoordinator::stopCondition() const {
     return _stopCondition;
+}
+
+long long ProcessCoordinator::localEnqueueCount() const {
+    return _localEnqueueCount.load();
+}
+
+long long ProcessCoordinator::remoteSendAttemptCount() const {
+    return _remoteSendAttemptCount.load();
+}
+
+long long ProcessCoordinator::remoteSendSuccessCount() const {
+    return _remoteSendSuccessCount.load();
+}
+
+long long ProcessCoordinator::remoteSendFailureCount() const {
+    return _remoteSendFailureCount.load();
+}
+
+long long ProcessCoordinator::inboundMessageCount() const {
+    return _inboundMessageCount.load();
 }
 
 const std::unordered_map<interfaceId, ProcessCoordinator::PeerEndpoint>& ProcessCoordinator::endpoints() const {
@@ -1215,6 +1353,7 @@ void ProcessCoordinator::sendJson(const std::string& ip, int port, const nlohman
     const std::string key = processKey(ip, port);
     std::string payload = msg.dump();
     const uint32_t networkLength = htonl(static_cast<uint32_t>(payload.size()));
+    ++_remoteSendAttemptCount;
     for (int attempt = 0; attempt < kMaxAttempts; ++attempt) {
         auto connection = getOrCreateOutboundConnection(ip, port);
         if (!connection || connection->fd < 0) {
@@ -1233,12 +1372,14 @@ void ProcessCoordinator::sendJson(const std::string& ip, int port, const nlohman
         }
 
         if (!sendFailed) {
+            ++_remoteSendSuccessCount;
             return;
         }
 
         closeOutboundConnection(key);
         std::this_thread::sleep_for(kRetryDelay);
     }
+    ++_remoteSendFailureCount;
 }
 
 void ProcessCoordinator::sendRegistrationToLeader() {

@@ -20,6 +20,8 @@
 *.user
 Debug/
 enc_temp_folder/
+.build/
 experiments/*
 !experiments/.gitkeep
 !experiments
+available_hosts.txt

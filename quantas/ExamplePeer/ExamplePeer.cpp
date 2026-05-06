@@ -42,7 +42,11 @@ ExamplePeer::ExamplePeer(const ExamplePeer& rhs)
 
 ExamplePeer::~ExamplePeer() = default;
 
-void ExamplePeer::initParameters(std::vector<Peer*>& peers, json parameters) {
+void ExamplePeer::initParameters(const std::vector<Peer*>& peers, json parameters) {
+    if (!parameters.is_object()) {
+        parameters = json::object();
+    }
+
     if (parameters.contains("parameter1")) {
         OutputWriter::pushValue("parameter1", parameters["parameter1"]);
     }

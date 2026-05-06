@@ -1,0 +1,175 @@
+{
+  "algorithms": [
+    "BitcoinPeer/BitcoinPeer.cpp"
+  ],
+  "experiments": [
+    {
+      "id": "paper/bitcoin/BitcoinParasiteCoalitionLowLead1",
+      "seed": 3101,
+      "threadCount": 12,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 2,
+        "maxMsgsRec": 1
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 12,
+        "initialPeerType": "BitcoinPeer"
+      },
+      "parameters": {
+        "submitRate": 4,
+        "mineRate": 1,
+        "mineScaler": 4,
+        "mineRates": [2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        "parasiteFault": {
+          "leadThreshold": 1,
+          "publicBlockThreshold": 2,
+          "peerIndices": [0, 1]
+        }
+      },
+      "tests": 10,
+      "rounds": 1500
+    },
+    {
+      "id": "paper/bitcoin/BitcoinParasiteCoalitionLowLead3",
+      "seed": 3103,
+      "threadCount": 12,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 2,
+        "maxMsgsRec": 1
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 12,
+        "initialPeerType": "BitcoinPeer"
+      },
+      "parameters": {
+        "submitRate": 4,
+        "mineRate": 1,
+        "mineScaler": 4,
+        "mineRates": [2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        "parasiteFault": {
+          "leadThreshold": 3,
+          "publicBlockThreshold": 2,
+          "peerIndices": [0, 1]
+        }
+      },
+      "tests": 10,
+      "rounds": 1500
+    },
+    {
+      "id": "paper/bitcoin/BitcoinParasiteCoalitionMidLead1",
+      "seed": 3401,
+      "threadCount": 12,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 2,
+        "maxMsgsRec": 1
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 12,
+        "initialPeerType": "BitcoinPeer"
+      },
+      "parameters": {
+        "submitRate": 4,
+        "mineRate": 1,
+        "mineScaler": 4,
+        "mineRates": [4, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        "parasiteFault": {
+          "leadThreshold": 1,
+          "publicBlockThreshold": 2,
+          "peerIndices": [0, 1]
+        }
+      },
+      "tests": 10,
+      "rounds": 1500
+    },
+    {
+      "id": "paper/bitcoin/BitcoinParasiteCoalitionMidLead3",
+      "seed": 3403,
+      "threadCount": 12,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 2,
+        "maxMsgsRec": 1
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 12,
+        "initialPeerType": "BitcoinPeer"
+      },
+      "parameters": {
+        "submitRate": 4,
+        "mineRate": 1,
+        "mineScaler": 4,
+        "mineRates": [4, 4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        "parasiteFault": {
+          "leadThreshold": 3,
+          "publicBlockThreshold": 2,
+          "peerIndices": [0, 1]
+        }
+      },
+      "tests": 10,
+      "rounds": 1500
+    },
+    {
+      "id": "paper/bitcoin/BitcoinParasiteCoalitionHighLead1",
+      "seed": 3601,
+      "threadCount": 12,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 2,
+        "maxMsgsRec": 1
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 12,
+        "initialPeerType": "BitcoinPeer"
+      },
+      "parameters": {
+        "submitRate": 4,
+        "mineRate": 1,
+        "mineScaler": 4,
+        "mineRates": [6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        "parasiteFault": {
+          "leadThreshold": 1,
+          "publicBlockThreshold": 2,
+          "peerIndices": [0, 1]
+        }
+      },
+      "tests": 10,
+      "rounds": 1500
+    },
+    {
+      "id": "paper/bitcoin/BitcoinParasiteCoalitionHighLead3",
+      "seed": 3603,
+      "threadCount": 12,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 2,
+        "maxMsgsRec": 1
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 12,
+        "initialPeerType": "BitcoinPeer"
+      },
+      "parameters": {
+        "submitRate": 4,
+        "mineRate": 1,
+        "mineScaler": 4,
+        "mineRates": [6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        "parasiteFault": {
+          "leadThreshold": 3,
+          "publicBlockThreshold": 2,
+          "peerIndices": [0, 1]
+        }
+      },
+      "tests": 10,
+      "rounds": 1500
+    }
+  ]
+}

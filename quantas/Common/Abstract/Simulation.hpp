@@ -18,6 +18,7 @@ You should have received a copy of the GNU General Public License along with QUA
 #include <chrono>
 #include <thread>
 #include <fstream>
+#include <limits>
 
 #include "Network.hpp"
 #include "../OutputWriter.hpp"
@@ -47,12 +48,18 @@ namespace quantas {
    		std::chrono::duration<double> duration; // chrono time interval
 		startTime = std::chrono::high_resolution_clock::now();
 
+        const json topology = config.value("topology", json::object());
+        const json distribution = config.value("distribution", json::object());
+        const json parameters = config.value("parameters", json::object());
+        const int tests = std::max(1, config.value("tests", 1));
+        const int initialPeers = topology.value("initialPeers", 0);
+
 		int _threadCount = config.value("threadCount", thread::hardware_concurrency()); // By default, use as many hardware cores as possible
 		if (_threadCount <= 0) { _threadCount = 1;}
-		if (_threadCount > config["topology"]["initialPeers"]) {
-			_threadCount = config["topology"]["initialPeers"];
+		if (_threadCount > initialPeers) {
+			_threadCount = initialPeers;
 		}
-		int networkSize = static_cast<int>(config["topology"]["initialPeers"]);
+		int networkSize = initialPeers;
 		const bool hasConfiguredSeed = config.contains("seed");
 		const uint32_t configuredSeed = hasConfiguredSeed
 			? static_cast<uint32_t>(config["seed"].get<uint64_t>())
@@ -64,7 +71,7 @@ namespace quantas {
 		std::vector<uint32_t> testSeeds;
 		
 		BS::thread_pool pool(_threadCount);
-		for (int i = 0; i < config["tests"]; i++) {
+		for (int i = 0; i < tests; i++) {
 			QUANTAS_LOG_INFO("runner") << "starting test " << i;
 			OutputWriter::instance()->setTest(i);
 			const uint32_t testSeed = hasConfiguredSeed
@@ -74,18 +81,23 @@ namespace quantas {
 			testSeeds.push_back(testSeed);
 			OutputWriter::setTestValue("seed", testSeed);
 			RoundManager::instance()->setCurrentRound(0);
-			RoundManager::instance()->setLastRound(config["rounds"]);
+			const bool boundedByRounds = config.contains("rounds") && config["rounds"].is_number_integer() &&
+				config["rounds"].get<int>() > 0;
+			const int maxRounds = boundedByRounds ? config["rounds"].get<int>() : 0;
+			RoundManager::instance()->setLastRound(
+				boundedByRounds ? static_cast<size_t>(maxRounds) : std::numeric_limits<size_t>::max());
+            RoundManager::clearStopRequest();
 			// Configure the delay properties and initial topology of the network
-			system.setDistribution(config["distribution"]);
-			system.initNetwork(config["topology"]);
-			if (config.contains("parameters")) {
-				system.initParameters(config["parameters"]);
+			system.setDistribution(distribution);
+			system.initNetwork(topology);
+			if (parameters.is_object() && !parameters.empty()) {
+				system.initParameters(parameters);
 			} else {
 				json empty;
 				system.initParameters(empty);
 			}
 			
-			for (int j = 0; j < config["rounds"]; j++) {
+			for (int j = 0; !RoundManager::stopRequested() && (!boundedByRounds || j < maxRounds); j++) {
 				QUANTAS_LOG_INFO("runner") << "starting round " << j;
 				RoundManager::incrementRound();
 
@@ -97,6 +109,10 @@ namespace quantas {
 				compute_loop.wait();
 
 				system.endOfRound(); // do any end of round computations
+                if (RoundManager::stopRequested()) {
+                    QUANTAS_LOG_INFO("runner") << "peer-requested stop observed after round " << j;
+                    break;
+                }
 			}
 			system.endOfExperiment();
 		}

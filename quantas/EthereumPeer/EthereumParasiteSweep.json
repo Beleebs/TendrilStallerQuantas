@@ -27,8 +27,8 @@
           "peerIndices": [0]
         }
       },
-      "tests": 3,
-      "rounds": 400
+      "tests": 1,
+      "rounds": 1000
     },
     {
       "id": "ethereum_parasite_rate_02_lead_03_public_02",
@@ -54,8 +54,8 @@
           "peerIndices": [0]
         }
       },
-      "tests": 3,
-      "rounds": 400
+      "tests": 1,
+      "rounds": 1000
     },
     {
       "id": "ethereum_parasite_rate_05_lead_01_public_02",
@@ -81,8 +81,8 @@
           "peerIndices": [0]
         }
       },
-      "tests": 3,
-      "rounds": 400
+      "tests": 1,
+      "rounds": 1000
     },
     {
       "id": "ethereum_parasite_rate_05_lead_03_public_02",
@@ -108,8 +108,8 @@
           "peerIndices": [0]
         }
       },
-      "tests": 3,
-      "rounds": 400
+      "tests": 1,
+      "rounds": 1000
     },
     {
       "id": "ethereum_parasite_rate_08_lead_01_public_02",
@@ -135,8 +135,8 @@
           "peerIndices": [0]
         }
       },
-      "tests": 3,
-      "rounds": 400
+      "tests": 1,
+      "rounds": 1000
     },
     {
       "id": "ethereum_parasite_rate_08_lead_03_public_02",
@@ -162,8 +162,8 @@
           "peerIndices": [0]
         }
       },
-      "tests": 3,
-      "rounds": 400
+      "tests": 1,
+      "rounds": 1000
     }
   ]
 }

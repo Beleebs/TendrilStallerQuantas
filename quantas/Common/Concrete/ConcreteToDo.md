@@ -1,19 +1,5 @@
 
-## **TO-DO List**
-
-### 1. Use **Persistent TCP Connections**
-**Goal:** Only connect to each peer once and reuse that connection.
-
-**How:**
-- Create a `PeerConnection` or `ConnectionManager` class.
-- Store a persistent `int socket_fd` for each peer.
-- Modify `send_json()` to:
-  - Check if a socket exists and is connected
-  - Otherwise, establish and store the connection
-
-📝 *Avoids cost of connect/close per message.*
-
----
+## **TO-DO List From GPT**
 
 ### 2. Push **accept() handling to thread pool**
 **Goal:** Don’t block listener loop waiting on slow connections.

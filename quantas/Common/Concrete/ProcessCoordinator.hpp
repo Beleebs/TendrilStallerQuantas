@@ -63,6 +63,7 @@ public:
                           bool isLeader,
                           std::optional<int> explicitPort,
                           size_t experimentIndex,
+                          size_t runIndex,
                           const std::string& logFileBase);
 
     std::vector<PeerAssignment> waitForAssignments();
@@ -75,6 +76,7 @@ public:
     void waitForStop();
 
     void notifyPeerStopped(interfaceId id);
+    void requestExperimentStop(interfaceId id, const std::string& reason);
 
     void registerInterface(interfaceId id, NetworkInterfaceConcrete* iface);
     void unregisterInterface(interfaceId id);
@@ -85,6 +87,11 @@ public:
 
     bool ownsPeer(interfaceId id) const;
     StopCondition stopCondition() const;
+    long long localEnqueueCount() const;
+    long long remoteSendAttemptCount() const;
+    long long remoteSendSuccessCount() const;
+    long long remoteSendFailureCount() const;
+    long long inboundMessageCount() const;
 
     const std::unordered_map<interfaceId, PeerEndpoint>& endpoints() const;
     const std::vector<PeerAssignment>& localAssignments() const;
@@ -121,6 +128,7 @@ private:
     void handleRegister(const std::string& remoteIp, int remotePort, const nlohmann::json& msg);
     void handleReady(const nlohmann::json& msg);
     void handlePeerDone(const std::string& remoteIp, int remotePort, interfaceId peerId);
+    void handleStopRequest(const std::string& remoteIp, int remotePort, const nlohmann::json& msg);
     void distributeAssignmentsIfReady();
     void sendAssignmentToProcess(const std::string& key, const ProcessRecord& record);
     void broadcastStartIfReady();
@@ -143,7 +151,7 @@ private:
 
     std::vector<PeerAssignment> computeAssignments(const std::unordered_map<std::string, ProcessRecord>& registrations) const;
     std::unordered_map<interfaceId, PeerEndpoint> computeEndpoints(const std::unordered_map<std::string, ProcessRecord>& registrations) const;
-    std::vector<PeerAssignment> buildTopologyAssignments(int totalPeers) const;
+    std::vector<PeerAssignment> buildTopologyAssignments(int initialpeers) const;
 
     void startStopTimer();
 
@@ -153,9 +161,8 @@ private:
     std::string _peerType;
     std::string _leaderIp;
     int _leaderPort{-1};
-    interfaceId _leaderId{0};
     size_t _experimentIndex{0};
-    int _totalPeers{0};
+    int _initialpeers{0};
     int _peersPerProcess{1};
     bool _isLeader{false};
 
@@ -210,6 +217,11 @@ private:
 
     std::thread _stopTimerThread;
     std::atomic<bool> _stopTimerActive{false};
+    std::atomic<long long> _localEnqueueCount{0};
+    std::atomic<long long> _remoteSendAttemptCount{0};
+    std::atomic<long long> _remoteSendSuccessCount{0};
+    std::atomic<long long> _remoteSendFailureCount{0};
+    std::atomic<long long> _inboundMessageCount{0};
 };
 
 } // namespace quantas

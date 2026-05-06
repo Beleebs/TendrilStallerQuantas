@@ -179,6 +179,21 @@ protected:
         return {"GENESIS"};
     }
 
+    virtual std::string selectBestHash() const {
+        const BlockRecord* best = nullptr;
+        std::string bestHash = "GENESIS";
+        for (const auto& entry : _blocks) {
+            const std::string& hash = entry.first;
+            if (!hasFullAncestry(hash)) continue;
+            const BlockRecord& record = entry.second;
+            if (!best || preferCandidate(record, best)) {
+                best = &record;
+                bestHash = hash;
+            }
+        }
+        return best ? bestHash : "GENESIS";
+    }
+
     int subtreeSize(const std::string& hash) const {
         std::unordered_set<std::string> visited;
         std::vector<std::string> stack;
@@ -220,7 +235,6 @@ protected:
         return false;
     }
 
-private:
     const BlockRecord* currentBest() const {
         auto it = _blocks.find(_bestHash);
         return (it == _blocks.end()) ? nullptr : &it->second;
@@ -277,29 +291,6 @@ private:
         }
     }
 
-    void ensureBestValid() {
-        auto it = _blocks.find(_bestHash);
-        if (it != _blocks.end() && hasFullAncestry(_bestHash)) {
-            return;
-        }
-        const BlockRecord* best = nullptr;
-        std::string bestHash = "GENESIS";
-        for (const auto& entry : _blocks) {
-            const std::string& hash = entry.first;
-            if (!hasFullAncestry(hash)) continue;
-            const BlockRecord& record = entry.second;
-            if (!best || preferCandidate(record, best)) {
-                best = &record;
-                bestHash = hash;
-            }
-        }
-        if (best) {
-            _bestHash = bestHash;
-        } else {
-            _bestHash = "GENESIS";
-        }
-    }
-
     void propagateUpdates(const std::string& root) {
         std::deque<std::string> queue;
         queue.push_back(root);
@@ -317,7 +308,7 @@ private:
                 }
             }
         }
-        ensureBestValid();
+        _bestHash = selectBestHash();
     }
     // gets the height of a block from its blockRecord data
     int heightOf(const std::string& hash) const {
@@ -325,6 +316,7 @@ private:
         return (it == _blocks.end()) ? 0 : it->second.height;
     }
 
+protected:
     Committee* _committee; // peers in this PoW instance
     std::unordered_map<std::string, BlockRecord> _blocks; // record of all blocks this peer has heard of
     std::string _bestHash; // current best tip to mine on

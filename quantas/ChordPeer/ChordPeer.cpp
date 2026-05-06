@@ -14,6 +14,7 @@ You should have received a copy of the GNU General Public License along with QUA
 #include <utility>
 
 #include "../Common/Abstract/NetworkInterfaceAbstract.hpp"
+#include "../Common/Concrete/NetworkInterfaceConcrete.hpp"
 #include "../Common/Json.hpp"
 #include "../Common/OutputWriter.hpp"
 #include "../Common/RandomUtil.hpp"
@@ -21,10 +22,48 @@ You should have received a copy of the GNU General Public License along with QUA
 
 namespace quantas {
 
+namespace {
+
+bool isClockwiseBetween(interfaceId self, interfaceId target, interfaceId candidate) {
+    if (candidate == self || candidate == target) {
+        return candidate == target;
+    }
+
+    if (target > self) {
+        return candidate > self && candidate <= target;
+    }
+    return candidate > self || candidate <= target;
+}
+
+bool isFurtherClockwise(interfaceId self, interfaceId target, interfaceId candidate, interfaceId currentBest) {
+    if (currentBest == NO_PEER_ID) {
+        return true;
+    }
+
+    if (target > self) {
+        return candidate > currentBest;
+    }
+
+    const bool candidateWrapped = candidate <= target;
+    const bool bestWrapped = currentBest <= target;
+    if (candidateWrapped != bestWrapped) {
+        return candidateWrapped;
+    }
+    return candidate > currentBest;
+}
+
+} // namespace
+
 static bool registerChordPeer = []() {
     return PeerRegistry::registerPeerType(
         "ChordPeer",
         [](interfaceId pubId) { return new ChordPeer(new NetworkInterfaceAbstract(pubId)); });
+}();
+
+static bool registerChordConcretePeer = []() {
+    return PeerRegistry::registerPeerType(
+        "ChordPeerConcrete",
+        [](interfaceId /*pubId*/) { return new ChordPeer(new NetworkInterfaceConcrete()); });
 }();
 
 int ChordPeer::s_nextTransactionId = 1;
@@ -34,37 +73,34 @@ ChordPeer::ChordPeer(NetworkInterface* interfacePtr)
 
 ChordPeer::ChordPeer(const ChordPeer& rhs)
     : Peer(rhs),
-      _ringOrder(rhs._ringOrder),
-      _indexById(rhs._indexById),
       _fingers(rhs._fingers),
-      _selfIndex(rhs._selfIndex),
+      _networkSize(rhs._networkSize),
       _initialized(rhs._initialized),
       _requestsSatisfied(rhs._requestsSatisfied),
       _totalHops(rhs._totalHops),
-      _totalLatency(rhs._totalLatency) {}
+      _totalLatency(rhs._totalLatency),
+      _maxHops(rhs._maxHops),
+      _stopAfterSatisfiedRequests(rhs._stopAfterSatisfiedRequests),
+      _stopRequested(rhs._stopRequested) {}
 
-void ChordPeer::initParameters(const std::vector<Peer*>& peers, json /*parameters*/) {
-    std::vector<interfaceId> ringOrder;
-    ringOrder.reserve(peers.size());
-    for (const auto* peerPtr : peers) {
-        ringOrder.push_back(peerPtr->publicId());
-    }
-    std::sort(ringOrder.begin(), ringOrder.end());
-
-    std::unordered_map<interfaceId, size_t> indexById;
-    for (size_t idx = 0; idx < ringOrder.size(); ++idx) {
-        indexById[ringOrder[idx]] = idx;
+void ChordPeer::initParameters(const std::vector<Peer*>& peers, json parameters) {
+    s_nextTransactionId = 1;
+    int configuredNetworkSize = static_cast<int>(peers.size());
+    int stopAfterSatisfiedRequests = -1;
+    if (parameters.is_object()) {
+        configuredNetworkSize = std::max(1,parameters.value("initialPeers", 1));
+        stopAfterSatisfiedRequests = parameters.value("stopAfterSatisfiedRequests", -1);
     }
 
     for (auto* basePtr : peers) {
         auto* peerPtr = static_cast<ChordPeer*>(basePtr);
-        peerPtr->_ringOrder = ringOrder;
-        peerPtr->_indexById = indexById;
-        auto it = indexById.find(peerPtr->publicId());
-        peerPtr->_selfIndex = (it != indexById.end()) ? it->second : 0;
+        peerPtr->_networkSize = configuredNetworkSize;
         peerPtr->_requestsSatisfied = 0;
         peerPtr->_totalHops = 0;
         peerPtr->_totalLatency = 0;
+        peerPtr->_maxHops = 0;
+        peerPtr->_stopAfterSatisfiedRequests = stopAfterSatisfiedRequests;
+        peerPtr->_stopRequested = false;
         peerPtr->_initialized = true;
         peerPtr->buildFingerTable();
     }
@@ -93,7 +129,15 @@ void ChordPeer::handleLookup(json msg) {
 
     if (target == publicId()) {
         ++_requestsSatisfied;
-        _totalHops += msg.value("hops", 0);
+        const int hops = msg.value("hops", 0);
+        _totalHops += hops;
+        _maxHops = std::max(_maxHops, hops);
+        if (!_stopRequested &&
+            _stopAfterSatisfiedRequests > 0 &&
+            _requestsSatisfied >= _stopAfterSatisfiedRequests) {
+            _stopRequested = true;
+            requestSimulationStop("ChordSatisfiedRequestThreshold");
+        }
         int submitted = msg.value("roundSubmitted", static_cast<int>(RoundManager::currentRound()));
         _totalLatency += static_cast<int>(RoundManager::currentRound()) - submitted;
         return;
@@ -110,7 +154,7 @@ void ChordPeer::handleLookup(json msg) {
 }
 
 void ChordPeer::submitLookup(int transactionId) {
-    if (!_initialized || _ringOrder.empty()) return;
+    if (!_initialized) return;
 
     interfaceId target = pickRandomTarget();
     json msg = makeLookupTemplate(target, transactionId);
@@ -143,34 +187,24 @@ json ChordPeer::makeLookupTemplate(interfaceId target, int transactionId) const 
 }
 
 interfaceId ChordPeer::pickRandomTarget() const {
-    if (_ringOrder.empty()) return publicId();
-    int index = randMod(static_cast<int>(_ringOrder.size()));
-    interfaceId candidate = _ringOrder[static_cast<size_t>(index)];
-    if (candidate == publicId() && _ringOrder.size() > 1) {
-        size_t nextIndex = (static_cast<size_t>(index) + 1) % _ringOrder.size();
-        candidate = _ringOrder[nextIndex];
+    const int upperBound = _networkSize;
+    if (upperBound <= 1) return publicId();
+
+    interfaceId candidate = static_cast<interfaceId>(randMod(upperBound));
+    if (candidate == publicId()) {
+        candidate = static_cast<interfaceId>((candidate + 1) % upperBound);
     }
     return candidate;
 }
 
 interfaceId ChordPeer::selectFinger(interfaceId target, const std::set<interfaceId>& neighborSet) const {
-    const size_t ringSize = _ringOrder.size();
-    if (ringSize <= 1) return NO_PEER_ID;
-
-    auto targetIt = _indexById.find(target);
-    if (targetIt == _indexById.end()) return NO_PEER_ID;
-    size_t distanceToTarget = (targetIt->second + ringSize - _selfIndex) % ringSize;
-    if (distanceToTarget == 0) return NO_PEER_ID;
-
     interfaceId best = NO_PEER_ID;
-    size_t bestSkip = 0;
 
     for (const auto& entry : _fingers) {
         if (!neighborSet.count(entry.nodeId)) continue;
-        if (entry.skipNormalized == 0) continue;
-        if (entry.skipNormalized <= distanceToTarget && entry.skipNormalized > bestSkip) {
+        if (!isClockwiseBetween(publicId(), target, entry.nodeId)) continue;
+        if (isFurtherClockwise(publicId(), target, entry.nodeId, best)) {
             best = entry.nodeId;
-            bestSkip = entry.skipNormalized;
         }
     }
 
@@ -179,36 +213,18 @@ interfaceId ChordPeer::selectFinger(interfaceId target, const std::set<interface
 
 interfaceId ChordPeer::chooseClockwiseNeighbor(interfaceId target,
                                                         const std::set<interfaceId>& neighborSet) const {
-    const size_t ringSize = _ringOrder.size();
-    if (ringSize <= 1 || neighborSet.empty()) return NO_PEER_ID;
-
-    auto targetIt = _indexById.find(target);
-    if (targetIt == _indexById.end()) return NO_PEER_ID;
-    size_t targetDistance = (targetIt->second + ringSize - _selfIndex) % ringSize;
-    if (targetDistance == 0) return NO_PEER_ID;
+    (void)target;
+    if (neighborSet.empty()) return NO_PEER_ID;
 
     interfaceId best = NO_PEER_ID;
-    size_t bestDistance = ringSize;
 
     for (interfaceId neighbor : neighborSet) {
-        auto it = _indexById.find(neighbor);
-        if (it == _indexById.end()) continue;
-        size_t distance = (it->second + ringSize - _selfIndex) % ringSize;
-        if (distance == 0) continue;
-        if (distance <= targetDistance && distance < bestDistance) {
-            bestDistance = distance;
-            best = neighbor;
-        }
-    }
-    if (best != NO_PEER_ID) return best;
-
-    for (interfaceId neighbor : neighborSet) {
-        auto it = _indexById.find(neighbor);
-        if (it == _indexById.end()) continue;
-        size_t distance = (it->second + ringSize - _selfIndex) % ringSize;
-        if (distance == 0) continue;
-        if (distance < bestDistance) {
-            bestDistance = distance;
+        if (neighbor == publicId()) continue;
+        if (neighbor > publicId()) {
+            if (best == NO_PEER_ID || best <= publicId() || neighbor < best) {
+                best = neighbor;
+            }
+        } else if (best == NO_PEER_ID || best <= publicId() && neighbor < best) {
             best = neighbor;
         }
     }
@@ -227,51 +243,40 @@ void ChordPeer::dispatchLookup(json msg,
 
 void ChordPeer::buildFingerTable() {
     _fingers.clear();
-    const size_t ringSize = _ringOrder.size();
-    if (ringSize <= 1) return;
 
-    size_t maxSkip = ringSize - 1;
-    size_t bits = 0;
-    while ((static_cast<size_t>(1) << bits) <= maxSkip) {
-        ++bits;
+    for (interfaceId neighbor : neighbors()) {
+        if (neighbor == publicId()) continue;
+        _fingers.push_back(FingerEntry{neighbor});
     }
 
-    for (size_t k = 0; k < bits; ++k) {
-        size_t skip = static_cast<size_t>(1) << k;
-        size_t normalized = skip % ringSize;
-        if (normalized == 0) continue;
-        size_t idx = (_selfIndex + skip) % ringSize;
-        interfaceId nodeId = _ringOrder[idx];
-        if (nodeId == publicId()) continue;
-        if (!_fingers.empty() && _fingers.back().nodeId == nodeId) continue;
-        FingerEntry entry;
-        entry.nodeId = nodeId;
-        entry.ringIndex = idx;
-        entry.skip = skip;
-        entry.skipNormalized = normalized;
-        _fingers.push_back(entry);
-    }
+    std::sort(_fingers.begin(), _fingers.end(),
+              [](const FingerEntry& lhs, const FingerEntry& rhs) { return lhs.nodeId < rhs.nodeId; });
+    _fingers.erase(std::unique(_fingers.begin(), _fingers.end(),
+                               [](const FingerEntry& lhs, const FingerEntry& rhs) {
+                                   return lhs.nodeId == rhs.nodeId;
+                               }),
+                   _fingers.end());
 }
 
 void ChordPeer::endOfRound(std::vector<Peer*>& peers) {
     if (peers.empty()) return;
-
-    std::vector<ChordPeer*> typed;
-    typed.reserve(peers.size());
     for (auto* basePtr : peers) {
-        typed.push_back(static_cast<ChordPeer*>(basePtr));
+        auto* peerPtr = static_cast<ChordPeer*>(basePtr);
+        if (randMod(static_cast<int>(peerPtr->_networkSize)))
+            peerPtr->submitLookup(s_nextTransactionId++);        
     }
+}
 
-    if (!typed.empty()) {
-        int idx = randMod(static_cast<int>(typed.size()));
-        typed[static_cast<size_t>(idx)]->submitLookup(s_nextTransactionId++);
-    }
+void ChordPeer::endOfExperiment(std::vector<Peer*>& peers) {
+    if (peers.empty()) return;
 
     long long totalSatisfied = 0;
     long long totalHops = 0;
     long long totalLatency = 0;
-
-    for (auto* peerPtr : typed) {
+    int maxHops = 0;
+    for (auto* basePtr : peers) {
+        auto* peerPtr = static_cast<ChordPeer*>(basePtr);
+        maxHops = std::max(maxHops, peerPtr->_maxHops);
         totalSatisfied += peerPtr->_requestsSatisfied;
         totalHops += peerPtr->_totalHops;
         totalLatency += peerPtr->_totalLatency;
@@ -282,6 +287,9 @@ void ChordPeer::endOfRound(std::vector<Peer*>& peers) {
         OutputWriter::pushValue("ChordAverageLatency", static_cast<double>(totalLatency) / totalSatisfied);
     }
     OutputWriter::pushValue("ChordRequestsSatisfied", static_cast<double>(totalSatisfied));
+    
+
+    OutputWriter::pushValue("ChordMaxHops", static_cast<double>(maxHops));
 }
 
 } // namespace quantas

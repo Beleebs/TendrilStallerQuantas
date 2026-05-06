@@ -23,15 +23,11 @@ usage() {
 Usage:
   Internal helper called by make. Use `make stop_distributed_concrete ...`
 Example:
-  make run_distributed_concrete INPUTFILE=quantas/ExamplePeet/ExampleConcreteInput1.json HOSTS_FILE=available_hosts.txt HOST_COUNT=2
-Host Selection:
-  -H, --hosts HOSTS           Comma-separated ssh hosts to stop
-      --hosts-file FILE       File containing one host per line
-      --count N               Use only the first N hosts from the hosts file
-
-Optional:
-  -w, --workdir DIR           Repo path on remote machines (default: current repo path)
-  -h, --help                  Show this help
+  make stop_distributed_concrete INPUTFILE=quantas/ChordPeer/ChordConcreteInput.json HOSTS_FILE=available_hosts.txt HOST_COUNT=8
+Parameters:
+      INPUTFILE=      Input JSON path relative to the repo
+      HOSTS_FILE=     File containing one host per line
+      HOSTS_COUNT=    Use only the first N hosts from the hosts file
 EOF
 }
 

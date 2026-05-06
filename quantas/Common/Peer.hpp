@@ -24,6 +24,7 @@ along with QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 #include <iostream>
 #include <algorithm>
 #include <memory>
+#include <unordered_map>
 #include "NetworkInterface.hpp"
 #include "Abstract/NetworkInterfaceAbstract.hpp"
 #include "Concrete/NetworkInterfaceConcrete.hpp"
@@ -45,13 +46,27 @@ public:
         return &s;
      }
 
+    static std::string registeredTypes() {
+        PeerRegistry* inst = instance();
+        std::string types;
+        for (const auto& entry : inst->registry) {
+            if (!types.empty()) {
+                types += ", ";
+            }
+            types += entry.first;
+        }
+        return types;
+    }
+
     static Peer* makePeer(const std::string &type, interfaceId pubId = 0) {
         PeerRegistry* inst = instance();
-        if (inst->registry.bucket_count() == 0)
-            throw  std::runtime_error("unordered_map has zero buckets in makePeer() in file Peer.hpp");
         auto it = inst->registry.find(type);
         if (it == inst->registry.end()) {
-            throw std::runtime_error("Unknown peer type: " + type);
+            std::string knownTypes = registeredTypes();
+            if (knownTypes.empty()) {
+                knownTypes = "(none)";
+            }
+            throw std::runtime_error("Unknown peer type: " + type + ". Registered peer types: " + knownTypes);
         }
         return it->second(pubId);
     }
@@ -111,6 +126,13 @@ inline Peer() {}
     virtual void endOfRound(std::vector<Peer*>& peers) {}
     
     virtual void endOfExperiment(std::vector<Peer*>& peers) {}
+
+    void requestSimulationStop(const std::string& reason = "peer_requested_stop") {
+        RoundManager::requestStop();
+        if (dynamic_cast<NetworkInterfaceConcrete*>(_networkInterface) != nullptr) {
+            ProcessCoordinator::instance().requestExperimentStop(publicId(), reason);
+        }
+    }
     
     bool isCrashed() {return (_crashRecoveryRound > RoundManager::currentRound());}
     void setCrashRecoveryRound(size_t crashRecoveryRound) {_crashRecoveryRound = crashRecoveryRound;}
@@ -140,6 +162,7 @@ inline Peer() {}
 
     // moves msgs to the inStream if they've arrived
     void receive() { _networkInterface->receive(); };
+    void discardInbound() { _networkInterface->discardInbound(); };
 
     // Clear everything
     void clearAll() { _networkInterface->clearAll(); };

@@ -10,8 +10,11 @@
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 16
+      },
       "topology": {
-        "type": "complete",
+        "type": "chord",
         "initialPeers": 16,
         "initialPeerType": "ChordPeer"
       },
@@ -25,8 +28,11 @@
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 32
+      },
       "topology": {
-        "type": "complete",
+        "type": "chord",
         "initialPeers": 32,
         "initialPeerType": "ChordPeer"
       },
@@ -40,8 +46,11 @@
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 64
+      },
       "topology": {
-        "type": "complete",
+        "type": "chord",
         "initialPeers": 64,
         "initialPeerType": "ChordPeer"
       },
@@ -55,8 +64,11 @@
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 128
+      },
       "topology": {
-        "type": "complete",
+        "type": "chord",
         "initialPeers": 128,
         "initialPeerType": "ChordPeer"
       },

@@ -1,0 +1,70 @@
+{
+  "algorithms": [
+    "PBFTPeer/PBFTPeer.cpp"
+  ],
+  "experiments": [
+    {
+      "id": "paper/pbft/PBFTByzantine06Delay10R1000",
+      "seed": 2700,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 6,
+        "view_change_delay": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 1,
+      "rounds": 1000
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine06Delay20R1000",
+      "seed": 2701,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 6,
+        "view_change_delay": 20
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 1,
+      "rounds": 1000
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine06Delay40R1000",
+      "seed": 2702,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 6,
+        "view_change_delay": 40
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 1,
+      "rounds": 1000
+    }
+  ]
+}

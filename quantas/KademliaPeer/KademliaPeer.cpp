@@ -42,58 +42,62 @@ static bool registerKademliaConcrete = []() {
 }();
 
 int KademliaPeer::s_currentTransactionId = 1;
-std::vector<interfaceId> KademliaPeer::s_allPeerIds;
-int KademliaPeer::s_binaryIdSize = 1;
 
 KademliaPeer::~KademliaPeer() = default;
 
 KademliaPeer::KademliaPeer(const KademliaPeer& rhs)
     : Peer(rhs),
       _binaryIdSize(rhs._binaryIdSize),
+      _networkSize(rhs._networkSize),
       _binaryId(rhs._binaryId),
-      _allPeerIds(rhs._allPeerIds),
       _fingers(rhs._fingers),
       _lastNeighborFingerprint(rhs._lastNeighborFingerprint),
       _requestsSatisfied(rhs._requestsSatisfied),
       _totalHops(rhs._totalHops),
+      _maxHops(rhs._maxHops),
       _latency(rhs._latency),
+      _stopAfterSatisfiedRequests(rhs._stopAfterSatisfiedRequests),
+      _stopRequested(rhs._stopRequested),
       _alive(rhs._alive),
       _initialized(rhs._initialized) {}
 
 KademliaPeer::KademliaPeer(NetworkInterface* networkInterface)
     : Peer(networkInterface) {}
 
-void KademliaPeer::initParameters(const std::vector<Peer*>& peers, json /*parameters*/) {
-    s_allPeerIds.clear();
-    s_allPeerIds.reserve(peers.size());
-    for (const auto* base : peers) {
-        s_allPeerIds.push_back(base->publicId());
-    }
-
-    size_t peerCount = std::max<size_t>(1, s_allPeerIds.size());
-    s_binaryIdSize = static_cast<int>(std::ceil(std::log2(static_cast<double>(peerCount))));
-    if (s_binaryIdSize <= 0) s_binaryIdSize = 1;
-
-    const int maxBits = static_cast<int>(sizeof(std::uint64_t) * 8);
-    if (s_binaryIdSize > maxBits) {
-        s_binaryIdSize = maxBits;
+void KademliaPeer::initParameters(const std::vector<Peer*>& peers, json parameters) {
+    s_currentTransactionId = 1;
+    int configuredNetworkSize = static_cast<int>(peers.size());
+    int stopAfterSatisfiedRequests = -1;
+    if (parameters.is_object()) {
+        configuredNetworkSize = std::max(1, parameters.value("initialPeers", configuredNetworkSize));
+        stopAfterSatisfiedRequests = parameters.value("stopAfterSatisfiedRequests", -1);
     }
 
     for (auto* base : peers) {
         auto* peer = static_cast<KademliaPeer*>(base);
-        peer->applyGlobalParameters();
+        peer->_networkSize = std::max(1, configuredNetworkSize);
+        const int upperBound = peer->_networkSize;
+        peer->_binaryIdSize = 1;
+        while ((static_cast<std::uint64_t>(1) << peer->_binaryIdSize) < static_cast<std::uint64_t>(upperBound) &&
+               peer->_binaryIdSize < static_cast<int>(sizeof(std::uint64_t) * 8 - 1)) {
+            ++peer->_binaryIdSize;
+        }
+        peer->_binaryId = peer->getBinaryId(peer->publicId());
+        peer->_initialized = true;
         peer->_requestsSatisfied = 0;
         peer->_totalHops = 0;
+        peer->_maxHops = 0;
         peer->_latency = 0;
+        peer->_stopAfterSatisfiedRequests = stopAfterSatisfiedRequests;
+        peer->_stopRequested = false;
         peer->_fingers.clear();
         peer->_lastNeighborFingerprint = 0;
+        peer->rebuildFingerTable(peer->neighbors());
     }
 }
 
 void KademliaPeer::performComputation() {
     if (!_alive) return;
-
-    ensureInitialized();
     if (!_initialized) return;
 
     const std::set<interfaceId> neighborSet = neighbors();
@@ -122,7 +126,15 @@ void KademliaPeer::handleLookup(json msg) {
 
     if (targetId == publicId()) {
         ++_requestsSatisfied;
-        _totalHops += msg.value("hops", 0);
+        const int hops = msg.value("hops", 0);
+        _totalHops += hops;
+        _maxHops = std::max(_maxHops, hops);
+        if (!_stopRequested &&
+            _stopAfterSatisfiedRequests > 0 &&
+            _requestsSatisfied >= _stopAfterSatisfiedRequests) {
+            _stopRequested = true;
+            requestSimulationStop("KademliaSatisfiedRequestThreshold");
+        }
         int submitted = msg.value("roundSubmitted", static_cast<int>(RoundManager::currentRound()));
         _latency += static_cast<int>(RoundManager::currentRound()) - submitted;
         return;
@@ -150,10 +162,14 @@ void KademliaPeer::handleLookup(json msg) {
 void KademliaPeer::submitLookup(int transactionId) {
     if (!_initialized) return;
 
-    interfaceId targetId = publicId();
-    if (!_allPeerIds.empty()) {
-        int index = randMod(static_cast<int>(_allPeerIds.size()));
-        targetId = _allPeerIds[static_cast<size_t>(index)];
+    const int upperBound = _networkSize;
+    if (upperBound <= 1) {
+        return;
+    }
+
+    interfaceId targetId = static_cast<interfaceId>(randMod(upperBound));
+    if (targetId == publicId()) {
+        targetId = static_cast<interfaceId>((targetId + 1) % upperBound);
     }
 
     std::string targetBinary = getBinaryId(targetId);
@@ -189,28 +205,6 @@ json KademliaPeer::makeLookupMessage(interfaceId targetId,
         {"hops", 0}
     };
     return msg;
-}
-
-void KademliaPeer::applyGlobalParameters() {
-    if (s_binaryIdSize <= 0 || s_allPeerIds.empty()) return;
-    _binaryIdSize = s_binaryIdSize;
-    _allPeerIds = s_allPeerIds;
-    _binaryId = getBinaryId(publicId());
-    _initialized = true;
-}
-
-void KademliaPeer::ensureInitialized() {
-    if (!_initialized) {
-        applyGlobalParameters();
-    } else {
-        if (s_binaryIdSize > 0 && _binaryIdSize != s_binaryIdSize) {
-            _binaryIdSize = s_binaryIdSize;
-            _binaryId = getBinaryId(publicId());
-        }
-        if (!s_allPeerIds.empty()) {
-            _allPeerIds = s_allPeerIds;
-        }
-    }
 }
 
 std::string KademliaPeer::getBinaryId(interfaceId id) const {
@@ -343,19 +337,27 @@ void KademliaPeer::endOfRound(std::vector<Peer*>& peers) {
         typed.push_back(static_cast<KademliaPeer*>(base));
     }
 
-    if (!typed.empty()) {
-        int index = randMod(static_cast<int>(typed.size()));
-        typed[static_cast<size_t>(index)]->submitLookup(s_currentTransactionId++);
+    for (auto* peer : typed) {
+        if (randMod(std::max(1, peer->_networkSize))) {
+            peer->submitLookup(s_currentTransactionId++);
+        }
     }
+}
+
+void KademliaPeer::endOfExperiment(std::vector<Peer*>& peers) {
+    if (peers.empty()) return;
 
     long long satisfied = 0;
     long long hops = 0;
     long long latency = 0;
+    int maxHops = 0;
 
-    for (auto* peer : typed) {
+    for (auto* base : peers) {
+        auto* peer = static_cast<KademliaPeer*>(base);
         satisfied += peer->_requestsSatisfied;
         hops += peer->_totalHops;
         latency += peer->_latency;
+        maxHops = std::max(maxHops, peer->_maxHops);
     }
 
     if (satisfied > 0) {
@@ -364,6 +366,7 @@ void KademliaPeer::endOfRound(std::vector<Peer*>& peers) {
         OutputWriter::pushValue("kademliaAverageLatency", static_cast<double>(latency) / satisfied);
     }
     OutputWriter::pushValue("kademliaRequestsSatisfied", static_cast<double>(satisfied));
+    OutputWriter::pushValue("kademliaMaxHops", static_cast<double>(maxHops));
 }
 
 }  // namespace quantas

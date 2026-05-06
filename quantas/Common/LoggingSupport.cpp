@@ -55,12 +55,12 @@ std::filesystem::path experimentOutputDirectory() {
     }
 
     std::string host = sanitizePathComponent(getenvOrEmpty("QUANTAS_HOSTNAME"));
-    std::string ip = sanitizePathComponent(getenvOrEmpty("QUANTAS_MACHINE_IP"));
     std::string role = sanitizePathComponent(getenvOrEmpty("QUANTAS_PROCESS_ROLE"));
+    std::string processPort = sanitizePathComponent(getenvOrEmpty("QUANTAS_PROCESS_PORT"));
 
     std::filesystem::path dir(runDir);
     dir /= "quantas";
-    dir /= role + "__" + host + "__" + ip;
+    dir /= role + "__" + host + "__p" + processPort;
     return dir;
 }
 
@@ -73,14 +73,15 @@ std::string buildRunAwareStem(const std::filesystem::path& inputPath,
 
     const std::string role = sanitizePathComponent(getenvOrEmpty("QUANTAS_PROCESS_ROLE"));
     const std::string host = sanitizePathComponent(getenvOrEmpty("QUANTAS_HOSTNAME"));
-    const std::string ip = sanitizePathComponent(getenvOrEmpty("QUANTAS_MACHINE_IP"));
+    const std::string processPort = sanitizePathComponent(getenvOrEmpty("QUANTAS_PROCESS_PORT"));
 
     builder << "__" << role
-            << "__" << host
-            << "__" << ip;
+            << "__" << host;
 
     if (port.has_value()) {
         builder << "__p" << *port;
+    } else {
+        builder << "__p" << processPort;
     }
 
     return builder.str();

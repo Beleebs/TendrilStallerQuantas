@@ -21,6 +21,7 @@ public:
 
     void unicastTo(nlohmann::json msg, const interfaceId& dest) override;
     void receive() override;
+    void discardInbound() override;
 
     void clearAll() override;
 

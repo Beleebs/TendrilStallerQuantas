@@ -63,11 +63,17 @@ public:
     void chain(int numberOfPeers);
     void ring(int numberOfPeers);
     void unidirectionalRing(int numberOfPeers);
+    void chord(int numberOfPeers);
+    void kademlia(int numberOfPeers);
     void userList(json topology);
     void createInitialChannels();
 
     // -------------- Specialized Initilization ------------
     void initParameters(json parameters) {
+        if (!parameters.is_object()) {
+            parameters = json::object();
+        }
+        parameters["__initialPeers"] = _peers.size();
         _peers[0]->initParameters(_peers, parameters);
     }
 

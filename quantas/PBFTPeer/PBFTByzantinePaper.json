@@ -1,0 +1,187 @@
+{
+  "algorithms": [
+    "PBFTPeer/PBFTPeer.cpp"
+  ],
+  "experiments": [
+    {
+      "id": "paper/pbft/PBFTByzantine00",
+      "seed": 1900,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 0
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 10,
+      "rounds": 500
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine01",
+      "seed": 1901,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 1
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 10,
+      "rounds": 500
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine02",
+      "seed": 1902,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 10,
+      "rounds": 500
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine03",
+      "seed": 1903,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 3
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 10,
+      "rounds": 500
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine04",
+      "seed": 1904,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 10,
+      "rounds": 500
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine05",
+      "seed": 1905,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 5
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 10,
+      "rounds": 500
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine06",
+      "seed": 1906,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 6
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 10,
+      "rounds": 500
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine07",
+      "seed": 1907,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 7
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 10,
+      "rounds": 500
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine08",
+      "seed": 1908,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 8
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 10,
+      "rounds": 500
+    }
+  ]
+}

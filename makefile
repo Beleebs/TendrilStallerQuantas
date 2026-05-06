@@ -14,32 +14,43 @@
 ############################### Input ###############################
 
 # Configurable usage to override the hardcoded input:
-# [make run INPUTFILE=quantas/ExamplePeer/ExampleInput.json]
+#   make run INPUTFILE=quantas/ExamplePeer/ExampleInput.json
+#   make run_distributed_concrete INPUTFILE=quantas/KademliaPeer/KademliaConcreteInput.json LEADER=localhost FOLLOWERS=localhost,localhost
+#
+# Keep INPUTFILE pointed at a convenient default for abstract runs.
+# Concrete runs should normally be launched through make run_distributed_concrete.
+# The launcher supplies QUANTAS_IS_LEADER and QUANTAS_LEADER_IP/PORT, so
+# concrete JSON files do not need machine-specific leader addresses.
 
-# Hard coded usage [make run] or [make run MODE=concrete] or [make run MODE=concrete PORT=XXXX]
-# Configure this for the specific input file.
-# Make sure to include the path to the input file 
-
-# INPUTFILE := quantas/ExamplePeer/ExampleInput.json
-# INPUTFILE := quantas/ExamplePeer/ExampleConcreteInput.json
+INPUTFILE := quantas/ExamplePeer/ExampleInput.json
+# INPUTFILE := quantas/ExamplePeer/ExampleConcreteInput1.json
+# INPUTFILE := quantas/KademliaPeer/KademliaConcreteInput.json
+# INPUTFILE := quantas/ChordPeer/ChordConcreteInput.json
 
 # INPUTFILE := quantas/AltBitPeer/AltBitInput.json
+# INPUTFILE := quantas/AltBitPeer/AltBitFaultToleranceInput.json
 
 # INPUTFILE := quantas/PBFTPeer/PBFTInput.json
 
 # INPUTFILE := quantas/BitcoinPeer/BitcoinPeerInput.json
 # INPUTFILE := quantas/BitcoinPeer/BitcoinConcreteInput.json
-INPUTFILE := quantas/BitcoinPeer/BitcoinParasiteSweep.json
+# INPUTFILE := quantas/BitcoinPeer/BitcoinParasiteSweep.json
+# INPUTFILE := quantas/EthereumPeer/EthereumParasiteSweep.json
+# INPUTFILE := quantas/EthereumPeer/EthereumPeerInput2.json
 
 # INPUTFILE := quantas/EthereumPeer/EthereumPeerInput.json
 
+
 # INPUTFILE := quantas/KademliaPeer/KademliaPeerInput.json
+# INPUTFILE := quantas/KademliaPeer/KademliaScaleAbstractPaper.json
 
 # INPUTFILE := quantas/ChordPeer/ChordPeerInput.json
+# INPUTFILE := quantas/ChordPeer/ChordScaleConcretePaper.json
 
 # INPUTFILE := quantas/RaftPeer/RaftInput.json
 
 # INPUTFILE := quantas/StableDataLinkPeer/StableDataLinkInput.json
+# INPUTFILE := quantas/StableDataLinkPeer/StableDataLinkFaultToleranceInput.json
 
 ############################### Variables and Flags ###############################
 
@@ -66,8 +77,13 @@ SIM_OBJS := $(COMMON_OBJS) $(ABSTRACT_SIM_OBJS)
 endif
 
 # compiles all cpps specified as necessary in the INPUTFILE
-ALGS := $(shell sed -n '/"algorithms"/,/]/p' $(INPUTFILE) \
+# Guard this so make does not block on stdin when INPUTFILE is unset.
+ifneq ($(strip $(INPUTFILE)),)
+ALGS := $(shell sed -n '/"algorithms"/,/]/p' "$(INPUTFILE)" \
          | sed -n 's/.*"\([^"]*\.cpp\)".*/quantas\/\1/p')
+else
+ALGS :=
+endif
 ALG_OBJS += $(ALGS:.cpp=.o)
 
 # necessary flags
@@ -75,6 +91,8 @@ CXX := g++
 CXXFLAGS := -pthread -std=c++17
 GCC_VERSION := $(shell $(CXX) $(CXXFLAGS) -dumpversion)
 GCC_MIN_VERSION := 8
+BUILD_SIGNATURE_FILE := .build/.last_build_signature
+BUILD_SIGNATURE := MODE=$(MODE);CXX=$(CXX);CXXFLAGS=$(CXXFLAGS);ALGS=$(ALGS);SIM_OBJS=$(SIM_OBJS)
 
 ############################### Build Types ###############################
 
@@ -112,8 +130,10 @@ run: release
 		if [ "$(MODE)" = "concrete" ]; then \
 			if [ -n "$(PORT)" ]; then \
 				export QUANTAS_PROCESS_ROLE="leader"; \
+				export QUANTAS_IS_LEADER="1"; \
 			else \
 				export QUANTAS_PROCESS_ROLE="follower"; \
+				export QUANTAS_IS_LEADER="0"; \
 			fi; \
 		else \
 			export QUANTAS_PROCESS_ROLE="abstract"; \
@@ -134,23 +154,25 @@ run: release
 help:
 	@echo "QUANTAS make routes:"
 	@echo "  make run INPUTFILE=<file>                  # Abstract mode"
-	@echo "  make run MODE=concrete INPUTFILE=<file>    # Concrete mode (single machine)"
 	@echo ""
-	@echo "Distributed concrete:"
-	@echo "  make run_distributed_concrete INPUTFILE=<file> HOSTS_FILE=scripts/available_hosts.txt HOST_COUNT=5"
-	@echo "  make stop_distributed_concrete HOSTS_FILE=scripts/available_hosts.txt HOST_COUNT=5"
+	@echo "Concrete mode:"
+	@echo "  make run_distributed_concrete INPUTFILE=<file> LEADER=localhost FOLLOWERS=localhost"
+	@echo "  make run_distributed_concrete INPUTFILE=<file> HOSTS_FILE=available_hosts.txt HOST_COUNT=5"
+	@echo "  make stop_distributed_concrete HOSTS_FILE=available_hosts.txt HOST_COUNT=5"
+	@echo "  make run_batch                             # Batch wrapper script"
 	@echo ""
 	@echo "Tests:"
 	@echo "  make test                                  # Run test inputs without valgrind"
 	@echo "  make test_with_memory                      # Run memory tests with valgrind"
 	@echo ""
-	@echo "Optional distributed vars:"
+	@echo "Optional concrete vars:"
 	@echo "  LEADER=<host> FOLLOWERS=<h1,h2,...> LEADER_INDEX=<n> PORT=<p> WORKDIR=<dir> ROOT_DIR=<dir>"
 
 # Wrapper route for scripts/run_distributed_concrete.sh
 # Examples:
-# make run_distributed_concrete INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json HOSTS_FILE=scripts/available_hosts.txt HOST_COUNT=5
-# make run_distributed_concrete INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json LEADER=eon1 FOLLOWERS=eon2,eon3,eon4
+# make run_distributed_concrete INPUTFILE=quantas/KademliaPeer/KademliaConcreteInput.json LEADER=localhost FOLLOWERS=localhost,localhost
+# make run_distributed_concrete INPUTFILE=quantas/KademliaPeer/KademliaConcreteInput.json HOSTS_FILE=available_hosts.txt HOST_COUNT=5
+# make run_distributed_concrete INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json LEADER=eon1 FOLLOWERS=eon1,eon2,eon3
 run_distributed_concrete:
 	@set -e; \
 	args="-i \"$(INPUTFILE)\""; \
@@ -167,7 +189,7 @@ run_distributed_concrete:
 
 # Wrapper route for scripts/stop_distributed_concrete.sh
 # Examples:
-# make stop_distributed_concrete HOSTS_FILE=scripts/available_hosts.txt HOST_COUNT=5
+# make stop_distributed_concrete HOSTS_FILE=available_hosts.txt HOST_COUNT=5
 # make stop_distributed_concrete HOSTS=eon1,eon2,eon3
 stop_distributed_concrete:
 	@set -e; \
@@ -177,6 +199,10 @@ stop_distributed_concrete:
 	if [ -n "$(HOST_COUNT)" ]; then args="$$args --count \"$(HOST_COUNT)\""; fi; \
 	if [ -n "$(WORKDIR)" ]; then args="$$args -w \"$(WORKDIR)\""; fi; \
 	eval "env MAKEFLAGS= QUANTAS_RUN_VIA_MAKE=1 bash ./scripts/stop_distributed_concrete.sh $$args"
+
+run_batch:
+	echo "running batch"; \
+	eval "env MAKEFLAGS= QUANTAS_RUN_VIA_MAKE=1 bash ./scripts/run_batch.sh"
 
 ############################### Debugging ###############################
 
@@ -201,8 +227,10 @@ run_memory:
 		if [ "$(MODE)" = "concrete" ]; then \
 			if [ -n "$(PORT)" ]; then \
 				export QUANTAS_PROCESS_ROLE="leader"; \
+				export QUANTAS_IS_LEADER="1"; \
 			else \
 				export QUANTAS_PROCESS_ROLE="follower"; \
+				export QUANTAS_IS_LEADER="0"; \
 			fi; \
 		else \
 			export QUANTAS_PROCESS_ROLE="abstract"; \
@@ -236,8 +264,10 @@ run_simple_memory:
 		if [ "$(MODE)" = "concrete" ]; then \
 			if [ -n "$(PORT)" ]; then \
 				export QUANTAS_PROCESS_ROLE="leader"; \
+				export QUANTAS_IS_LEADER="1"; \
 			else \
 				export QUANTAS_PROCESS_ROLE="follower"; \
+				export QUANTAS_IS_LEADER="0"; \
 			fi; \
 		else \
 			export QUANTAS_PROCESS_ROLE="abstract"; \
@@ -331,7 +361,7 @@ rand_test: quantas/Tests/randtest.cpp
 	
 # in the future this could be generalized to go through every file in a Tests
 # folder such that the input files need not be listed here
-TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitInput.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinPeerInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/ChordPeer/ChordPeerInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json
+TEST_INPUTS := quantas/ExamplePeer/ExampleInput.json quantas/AltBitPeer/AltBitInput.json quantas/AltBitPeer/AltBitFaultToleranceInput.json quantas/PBFTPeer/PBFTInput.json quantas/BitcoinPeer/BitcoinPeerInput.json quantas/EthereumPeer/EthereumPeerInput.json quantas/ChordPeer/ChordPeerInput.json quantas/KademliaPeer/KademliaPeerInput.json quantas/RaftPeer/RaftInput.json quantas/StableDataLinkPeer/StableDataLinkInput.json quantas/StableDataLinkPeer/StableDataLinkFaultToleranceInput.json
 
 test: check-version rand_test
 	+@$(MAKE) --no-print-directory clean
@@ -365,7 +395,7 @@ define check_failure
     } | grep -iE 'oom|killed|segfault|error' || echo "No relevant logs found."
 endef
 
-%.o: %.cpp
+%.o: %.cpp $(BUILD_SIGNATURE_FILE)
 	@echo compiling $<
 	@$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -374,6 +404,20 @@ check-version:
 	@if [ "$(GCC_VERSION)" -lt "$(GCC_MIN_VERSION)" ]; then echo "Default version of g++ must be higher than 8."; fi
 	@if [ "$(GCC_VERSION)" -lt "$(GCC_MIN_VERSION)" ]; then echo "To change the default version visit: https://linuxconfig.org/how-to-switch-between-multiple-gcc-and-g-compiler-versions-on-ubuntu-20-04-lts-focal-fossa"; fi
 	@if [ "$(GCC_VERSION)" -lt "$(GCC_MIN_VERSION)" ]; then exit 1; fi
+
+$(BUILD_SIGNATURE_FILE): FORCE
+	@mkdir -p .build
+	@new_sig='$(BUILD_SIGNATURE)'; \
+	old_sig=""; \
+	if [ -f "$(BUILD_SIGNATURE_FILE)" ]; then \
+		old_sig="$$(cat "$(BUILD_SIGNATURE_FILE)")"; \
+	fi; \
+	if [ "$$old_sig" != "$$new_sig" ]; then \
+		if [ -n "$$old_sig" ]; then echo "Build configuration changed; rebuilding objects..."; fi; \
+		printf '%s\n' "$$new_sig" > "$(BUILD_SIGNATURE_FILE)"; \
+	fi
+
+FORCE:
 
 $(EXE): $(ALG_OBJS) $(SIM_OBJS)
 	@$(CXX) $(CXXFLAGS) $^ -o $(EXE)
@@ -393,4 +437,4 @@ clean_logs:
 ############################### PHONY ###############################
 
 # All make commands found in this file
-.PHONY: help clean run release debug $(EXE) %.o clang run_memory run_simple_memory run_debug check-version rand_test test test_with_memory clean_txt run_distributed_concrete stop_distributed_concrete
+.PHONY: help clean run release debug $(EXE) %.o clang run_memory run_simple_memory run_debug check-version rand_test test test_with_memory clean_txt run_distributed_concrete stop_distributed_concrete run_batch FORCE

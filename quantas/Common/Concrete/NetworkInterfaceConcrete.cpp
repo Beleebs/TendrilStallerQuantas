@@ -43,6 +43,14 @@ void NetworkInterfaceConcrete::receive() {
     }
 }
 
+void NetworkInterfaceConcrete::discardInbound() {
+    if (!_configured.load()) return;
+    std::deque<Packet> discarded;
+    ProcessCoordinator::instance().drainInbound(_publicId, discarded);
+    std::lock_guard<std::mutex> lock(_inStream_mtx);
+    _inStream.clear();
+}
+
 void NetworkInterfaceConcrete::clearAll() {
     if (!_configured.exchange(false)) {
         return;

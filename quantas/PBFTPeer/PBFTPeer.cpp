@@ -36,6 +36,11 @@ public:
     const int WINDOW = 128; // or a parameter for watermarks
     int lastStableCheckpoint = 0;
     int viewChangeAnchorSeq = 0;  // seq key to anchor VC/NV
+    int progressSeq = -1;
+    int progressView = -1;
+    std::string progressDigest;
+    int progressStage = 0;
+    int progressCount = 0;
     // seqNum, view
     map<int, map<int, multimap<string, json>>> _receivedMessages;
 
@@ -56,6 +61,8 @@ public:
     void sendCheckpoint(Peer* peer);
     void maybeStableCheckpoint(Peer* peer);
     void requestViewChange(Peer* peer);
+    bool installCommittedPrefix(Peer* peer);
+    void observeProgress(int candidateView, int candidateSeq, const std::string& digest, int stage, int count);
 
     int f() const { return (int)(_committee->size()-1)/3; }
     int quorum() const { return 2*f(); }        // # of msgs > 2f to move on
@@ -139,7 +146,9 @@ public:
 
     // Prepared certificate in v,n for digest d
     bool isPrepared(int v, int n, const std::string& d) {
-        return hasPrePrepare(v,n,d) && countPrepares(v,n,d) > quorum();
+        // PBFT prepared requires the pre-prepare plus 2f matching prepares
+        // from distinct backups, not 2f+1 prepare messages.
+        return hasPrePrepare(v,n,d) && countPrepares(v,n,d) >= quorum();
     }
 
     // Commit certificate in v,n for d
@@ -148,7 +157,9 @@ public:
     }
 
     // Choose next sequence number and cache last proposal digest
-    int nextSeq() const { return (int)_confirmedTrans.size(); }
+    // Sequence numbers start at 1 so the first live request is not confused
+    // with the initial stable checkpoint at sequence 0 during view changes.
+    int nextSeq() const { return (int)_confirmedTrans.size() + 1; }
 
     // Stable checkpoint check: 2f+1 matching digests at seq multiple of interval
     bool stableCheckpointReady(int seq, std::string* dig=nullptr) {
@@ -164,6 +175,88 @@ public:
         return false;
     }
 };
+
+bool PBFTConsensus::installCommittedPrefix(Peer* peer) {
+    bool changed = false;
+
+    while (true) {
+        const int targetSeq = static_cast<int>(_confirmedTrans.size()) + 1;
+        int bestView = -1;
+        json committedReq;
+
+        auto seqIt = _receivedMessages.find(targetSeq);
+        if (seqIt == _receivedMessages.end()) {
+            break;
+        }
+
+        for (const auto& viewEntry : seqIt->second) {
+            const int candidateView = viewEntry.first;
+            const auto& mm = viewEntry.second;
+            auto ppRange = mm.equal_range("pre-prepare");
+            for (auto it = ppRange.first; it != ppRange.second; ++it) {
+                const auto& pp = it->second;
+                if ((int)pp["view"] != candidateView) continue;
+                if (pp["from_id"] != leaderFor(candidateView)) continue;
+                if (!pp.contains("proposal") || !pp["proposal"].contains("Request")) continue;
+                if (pp["seqNum"] != targetSeq) continue;
+
+                const auto& req = pp["proposal"]["Request"];
+                const auto digest = digestOf(req);
+                if (!isCommitted(candidateView, targetSeq, digest)) continue;
+
+                if (candidateView > bestView) {
+                    bestView = candidateView;
+                    committedReq = req;
+                }
+            }
+        }
+
+        if (bestView < 0 || committedReq.empty()) {
+            break;
+        }
+
+        _confirmedTrans.push_back(committedReq);
+        _latency += RoundManager::currentRound() - committedReq["roundSubmitted"].get<int>();
+        viewChangeTimer = RoundManager::currentRound() + viewChangeDelay;
+        changed = true;
+
+        QUANTAS_LOG_TRACE("PBFT") << peer->publicId()
+            << " install committed prefix seq " << targetSeq
+            << " from view " << bestView
+            << " at round " << RoundManager::currentRound();
+
+        for (auto it = _unhandledRequests.begin(); it != _unhandledRequests.end(); ++it) {
+            if (it->second == committedReq) {
+                _unhandledRequests.erase(it);
+                break;
+            }
+        }
+
+        sendCheckpoint(peer);
+    }
+
+    return changed;
+}
+
+void PBFTConsensus::observeProgress(int candidateView, int candidateSeq, const std::string& digest, int stage, int count) {
+    if (count <= 0) {
+        return;
+    }
+
+    const bool changedRequest =
+        candidateSeq != progressSeq || candidateView != progressView || digest != progressDigest;
+    const bool advancedWithinRequest =
+        stage > progressStage || (stage == progressStage && count > progressCount);
+
+    if (changedRequest || advancedWithinRequest) {
+        progressSeq = candidateSeq;
+        progressView = candidateView;
+        progressDigest = digest;
+        progressStage = stage;
+        progressCount = count;
+        viewChangeTimer = RoundManager::currentRound() + viewChangeDelay;
+    }
+}
 
 // Called periodically (e.g. after commit) to multicast a checkpoint
 void PBFTConsensus::sendCheckpoint(Peer* peer) {
@@ -311,6 +404,11 @@ void PBFTPeer::performComputation() {
     }
 
     for (auto consensus : consensuses) {
+        if (auto* pbft = dynamic_cast<PBFTConsensus*>(consensus.second)) {
+            if (pbft->installCommittedPrefix(this)) {
+                pbft->_phase = PBFTPrePreparePhase::instance();
+            }
+        }
         consensus.second->runPhase(this);
     }
 };
@@ -329,21 +427,45 @@ void PBFTConsensus::requestViewChange(Peer* peer) {
     viewChangeAnchorSeq = lastStableCheckpoint;
 
     view++;
+    progressSeq = -1;
+    progressView = -1;
+    progressDigest.clear();
+    progressStage = 0;
+    progressCount = 0;
 
     std::vector<json> preparedProof;
     for (int s=lastStableCheckpoint+1; s<nextSeq(); ++s) {
-        // Find highest digest prepared in oldView
-        // iterate pre-prepare messages from oldView
-        auto &mm = _receivedMessages[s][oldView];
-        auto ppr = mm.equal_range("pre-prepare");
-        for (auto it=ppr.first; it!=ppr.second; ++it) {
-            const auto& pp = it->second;
-            if ((int)pp["view"]!=oldView) continue;
-            auto d = digestOf(pp["proposal"]["Request"]);
-            if (isPrepared(oldView, s, d)) {
-                preparedProof.push_back(pp); // include pp; prepares can be inferred by count in sim
-                break;
+        const json* bestPrepared = nullptr;
+        int bestPreparedView = -1;
+
+        auto seqIt = _receivedMessages.find(s);
+        if (seqIt == _receivedMessages.end()) {
+            continue;
+        }
+
+        for (const auto& viewEntry : seqIt->second) {
+            const int candidateView = viewEntry.first;
+            if (candidateView > oldView) continue;
+
+            const auto& mm = viewEntry.second;
+            auto ppr = mm.equal_range("pre-prepare");
+            for (auto it = ppr.first; it != ppr.second; ++it) {
+                const auto& pp = it->second;
+                if ((int)pp["view"] != candidateView) continue;
+                if (!pp.contains("proposal") || !pp["proposal"].contains("Request")) continue;
+
+                auto d = digestOf(pp["proposal"]["Request"]);
+                if (!isPrepared(candidateView, s, d)) continue;
+
+                if (candidateView > bestPreparedView) {
+                    bestPrepared = &pp;
+                    bestPreparedView = candidateView;
+                }
             }
+        }
+
+        if (bestPrepared) {
+            preparedProof.push_back(*bestPrepared);
         }
     }
 
@@ -355,6 +477,7 @@ void PBFTConsensus::requestViewChange(Peer* peer) {
         {"newView", view},
         {"view", oldView},
         {"lastStable", lastStableCheckpoint},
+        {"confirmedPrefix", _confirmedTrans},
         {"preparedProof", preparedProof},
         {"from_id", peer->publicId()}
     };
@@ -378,6 +501,11 @@ void PBFTPrePreparePhase::runPhase(Consensus* con, Peer* peer) {
     c->maybeStableCheckpoint(peer);
 
     if (c->viewChangeTimer < RoundManager::currentRound()) {
+        QUANTAS_LOG_TRACE("PBFT") << peer->publicId()
+            << " timeout in pre-prepare at round " << RoundManager::currentRound()
+            << " view " << c->view
+            << " nextSeq " << c->nextSeq()
+            << " confirmed " << c->_confirmedTrans.size();
         c->requestViewChange(peer);
         return;
     }
@@ -430,6 +558,8 @@ void PBFTPrePreparePhase::runPhase(Consensus* con, Peer* peer) {
         }
         if (pp.empty()) return;
 
+        c->observeProgress(c->view, n, c->digestOf(pp["proposal"]["Request"]), 1, 1);
+
         // Send PREPARE matching pp
         json prep = pp; 
         prep["MessageType"]="prepare";
@@ -448,6 +578,11 @@ void PBFTPreparePhase::runPhase(Consensus* con, Peer* peer) {
     c->maybeStableCheckpoint(peer);
 
     if (c->viewChangeTimer < RoundManager::currentRound()) {
+        QUANTAS_LOG_TRACE("PBFT") << peer->publicId()
+            << " timeout in prepare at round " << RoundManager::currentRound()
+            << " view " << c->view
+            << " nextSeq " << c->nextSeq()
+            << " confirmed " << c->_confirmedTrans.size();
         c->requestViewChange(peer);
         return;
     }
@@ -462,6 +597,7 @@ void PBFTPreparePhase::runPhase(Consensus* con, Peer* peer) {
         // if (pp["from_id"]!=c->leaderFor(c->view)) continue;
         if (!pp.contains("proposal") || !pp["proposal"].contains("Request")) continue;
         auto d = c->digestOf(pp["proposal"]["Request"]);
+        c->observeProgress(c->view, n, d, 2, c->countPrepares(c->view, n, d));
         // digest might not match for leader if they are in the wrong group
         if (!c->isPrepared(c->view, n, d)) continue;
 
@@ -484,6 +620,11 @@ void PBFTCommitPhase::runPhase(Consensus* con, Peer* peer) {
     c->maybeStableCheckpoint(peer);
 
     if (c->viewChangeTimer < RoundManager::currentRound()) {
+        QUANTAS_LOG_TRACE("PBFT") << peer->publicId()
+            << " timeout in commit at round " << RoundManager::currentRound()
+            << " view " << c->view
+            << " nextSeq " << c->nextSeq()
+            << " confirmed " << c->_confirmedTrans.size();
         c->requestViewChange(peer);
         return;
     }
@@ -498,12 +639,19 @@ void PBFTCommitPhase::runPhase(Consensus* con, Peer* peer) {
         if (!pp.contains("proposal") || !pp["proposal"].contains("Request")) continue;
         auto req = pp["proposal"]["Request"];
         auto d = c->digestOf(req);
+        c->observeProgress(c->view, n, d, 3, c->countCommits(c->view, n, d));
         if (!c->isCommitted(c->view, n, d)) continue;
 
         // Decide
         c->_confirmedTrans.push_back(req);
         c->_latency += RoundManager::currentRound() - req["roundSubmitted"].get<int>();
         c->viewChangeTimer = RoundManager::currentRound() + c->viewChangeDelay;
+
+        QUANTAS_LOG_TRACE("PBFT") << peer->publicId()
+            << " commit seq " << n
+            << " in view " << c->view
+            << " at round " << RoundManager::currentRound()
+            << " confirmed " << c->_confirmedTrans.size();
 
         // Checkpointing at interval
         c->sendCheckpoint(peer);
@@ -525,6 +673,10 @@ void PBFTViewChangePhase::runPhase(Consensus* con, Peer* peer) {
     c->maybeStableCheckpoint(peer);
 
     if (RoundManager::currentRound() >= c->viewChangeTimer) {
+        QUANTAS_LOG_TRACE("PBFT") << peer->publicId()
+            << " timeout while waiting for new view at round " << RoundManager::currentRound()
+            << " current view " << c->view
+            << " anchor " << c->viewChangeAnchorSeq;
         c->requestViewChange(peer);
         return;
     }
@@ -541,8 +693,18 @@ void PBFTViewChangePhase::runPhase(Consensus* con, Peer* peer) {
 
     if (peer->publicId() == c->leaderFor(c->view)) {
         std::vector<json> prepared;
+        std::vector<json> confirmedPrefix;
         auto &mmOld = c->_receivedMessages[c->viewChangeAnchorSeq][c->view-1];
         auto r = mmOld.equal_range("viewChange");
+        for (auto it=r.first; it!=r.second; ++it) {
+            const auto& m = it->second;
+            if ((int)m["newView"] != c->view) continue;
+            if (!m.contains("confirmedPrefix") || !m["confirmedPrefix"].is_array()) continue;
+            auto candidate = m["confirmedPrefix"].get<std::vector<json>>();
+            if (candidate.size() > confirmedPrefix.size()) {
+                confirmedPrefix = std::move(candidate);
+            }
+        }
         for (int n = c->lastStableCheckpoint + 1; n <= c->highWaterMark; ++n) {
             const json* best = nullptr; int bestV = -1;
             for (auto it=r.first; it!=r.second; ++it) {
@@ -565,6 +727,7 @@ void PBFTViewChangePhase::runPhase(Consensus* con, Peer* peer) {
             {"seqNum", c->viewChangeAnchorSeq},        // <<<<<< required
             {"view", c->view},                         // new view
             {"lastStable", c->lastStableCheckpoint},
+            {"confirmedPrefix", confirmedPrefix},
             {"preparedProof", prepared},
             {"from_id", peer->publicId()}
         };
@@ -584,6 +747,10 @@ void PBFTNewViewPhase::runPhase(Consensus* con, Peer* peer) {
     c->maybeStableCheckpoint(peer);
 
     if (RoundManager::currentRound() >= c->viewChangeTimer) {
+        QUANTAS_LOG_TRACE("PBFT") << peer->publicId()
+            << " timeout in new-view at round " << RoundManager::currentRound()
+            << " view " << c->view
+            << " anchor " << c->viewChangeAnchorSeq;
         c->requestViewChange(peer);
         return;
     }
@@ -616,13 +783,52 @@ void PBFTNewViewPhase::runPhase(Consensus* con, Peer* peer) {
     c->lowWaterMark  = c->lastStableCheckpoint;
     c->highWaterMark = c->lowWaterMark + c->WINDOW;
 
-    // Re-issue PRE-PREPAREs for preparedProof
-    for (const auto& pp : nv["preparedProof"]) {
+    if (nv.contains("confirmedPrefix") && nv["confirmedPrefix"].is_array()) {
+        const auto prefix = nv["confirmedPrefix"].get<std::vector<json>>();
+        while (c->_confirmedTrans.size() < prefix.size()) {
+            const auto& req = prefix[c->_confirmedTrans.size()];
+            c->_confirmedTrans.push_back(req);
+            c->_latency += RoundManager::currentRound() - req["roundSubmitted"].get<int>();
+            QUANTAS_LOG_TRACE("PBFT") << peer->publicId()
+                << " state-transfer install seq " << c->_confirmedTrans.size()
+                << " in new view " << c->view
+                << " at round " << RoundManager::currentRound();
+            for (auto it = c->_unhandledRequests.begin(); it != c->_unhandledRequests.end(); ++it) {
+                if (it->second == req) {
+                    c->_unhandledRequests.erase(it);
+                    break;
+                }
+            }
+        }
+    }
+
+    std::vector<json> carried = nv["preparedProof"].get<std::vector<json>>();
+    std::sort(carried.begin(), carried.end(), [](const json& lhs, const json& rhs) {
+        return lhs["seqNum"].get<int>() < rhs["seqNum"].get<int>();
+    });
+
+    for (const auto& pp : carried) {
+        const int seq = pp["seqNum"].get<int>();
+        const auto& req = pp["proposal"]["Request"];
+
+        if (seq == static_cast<int>(c->_confirmedTrans.size()) + 1) {
+            c->_confirmedTrans.push_back(req);
+            c->_latency += RoundManager::currentRound() - req["roundSubmitted"].get<int>();
+        }
+    }
+
+    // Re-issue PRE-PREPAREs only for requests not already installed locally.
+    for (const auto& pp : carried) {
+        const int seq = pp["seqNum"].get<int>();
+        if (seq <= static_cast<int>(c->_confirmedTrans.size())) {
+            continue;
+        }
+
         json p = {
             {"type","Consensus"},
             {"consensusId", c->getId()},
             {"MessageType","pre-prepare"},
-            {"seqNum", pp["seqNum"]},
+            {"seqNum", seq},
             {"view", c->view},                     // new view
             {"proposal", {
                 {"Request", pp["proposal"]["Request"]},  // same payload/digest
@@ -631,7 +837,7 @@ void PBFTNewViewPhase::runPhase(Consensus* con, Peer* peer) {
             {"from_id", peer->publicId()}          // new leader
         };
         peer->multicast(p, c->getMembers());
-        c->_receivedMessages[p["seqNum"].get<int>()][c->view].insert({"pre-prepare", p});
+        c->_receivedMessages[seq][c->view].insert({"pre-prepare", p});
     }
     // Update view change timer since we have made it to the next view
     c->viewChangeTimer = RoundManager::currentRound() + c->viewChangeDelay;
@@ -661,6 +867,8 @@ void PBFTPeer::initParameters(const std::vector<Peer*>& _peers, json parameters)
 
 	const int committeeId = 0;
     const int byzantine_count = parameters.value("byzantine_count", 0);
+    const int view_change_delay = parameters.value("view_change_delay", 10);
+    const int checkpoint_interval = parameters.value("checkpoint_interval", 10);
 
     Committee* committeePtr = new Committee(committeeId);
     std::set<interfaceId> members;
@@ -681,6 +889,9 @@ void PBFTPeer::initParameters(const std::vector<Peer*>& _peers, json parameters)
     // Assign a PBFTConsensus instance using this committee to each peer
     for (auto p : peers) {
         PBFTConsensus* pbft = new PBFTConsensus(new Committee(*committeePtr));
+        pbft->viewChangeDelay = view_change_delay;
+        pbft->viewChangeTimer = view_change_delay;
+        pbft->checkpointInterval = checkpoint_interval;
         p->consensuses[committeeId] = pbft;
 	}
     delete committeePtr;

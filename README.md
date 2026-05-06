@@ -38,27 +38,46 @@ Clone the repository, pick the algorithm/input configuration you want to exercis
 
 ## Running in Concrete Mode
 
-QUANTAS also supports concrete socket-based execution (`MODE=concrete`), both on one machine and across multiple hosts.
+QUANTAS also supports concrete socket-based execution (`MODE=concrete`). The recommended way to launch concrete mode is always through `make run_distributed_concrete`, whether you are using one machine or many. The scripts in `scripts/` are internal helpers and are intended to be used through the root `makefile`. Concrete input JSON files no longer need to embed leader IPs or ports; the launcher injects `QUANTAS_IS_LEADER`, `QUANTAS_LEADER_IP`, and `QUANTAS_LEADER_PORT` at process start time instead.
 
 ### Single-machine concrete run
 
-1. Choose an input file that registers concrete-capable peers (for example `quantas/BitcoinPeer/BitcoinConcreteInput.json`).
-2. Start one process as leader on a known port:
-   ```sh
-   make run MODE=concrete INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json PORT=5000
-   ```
-3. Start follower processes (same input, no `PORT`) in other terminals:
-   ```sh
-   make run MODE=concrete INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json
-   ```
+For a local concrete run, use `localhost` for the leader and follower slots. Repeating the same host is supported, so one machine can run the leader and multiple followers on distinct ports.
 
-### Distributed concrete run via SSH hosts
+```sh
+make run_distributed_concrete \
+  INPUTFILE=quantas/KademliaPeer/KademliaConcreteInput.json \
+  LEADER=localhost \
+  FOLLOWERS=localhost,localhost
+```
 
-Use the root `makefile` routes (the scripts in `scripts/` are internal helpers and are make-only):
+You can add more local followers by repeating `localhost` more times:
+
+```sh
+make run_distributed_concrete \
+  INPUTFILE=quantas/ChordPeer/ChordConcreteInput.json \
+  LEADER=localhost \
+  FOLLOWERS=localhost,localhost,localhost
+```
+
+### Multi-host concrete run via SSH
+
+Use either an explicit leader/follower list or a hosts file.
+
+Example with explicit hosts:
 
 ```sh
 make run_distributed_concrete \
   INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json \
+  LEADER=eon1 \
+  FOLLOWERS=eon1,eon2,eon3
+```
+
+Example with `available_hosts.txt`:
+
+```sh
+make run_distributed_concrete \
+  INPUTFILE=quantas/KademliaPeer/KademliaConcreteInput.json \
   HOSTS_FILE=available_hosts.txt \
   HOST_COUNT=5
 ```
@@ -66,9 +85,13 @@ make run_distributed_concrete \
 Optional variables:
 - `LEADER=<host>` and `FOLLOWERS=<host1,host2,...>` for explicit host assignment.
 - `LEADER_INDEX=<n>` when selecting the leader from `HOSTS_FILE`.
-- `PORT=<leaderPort>` (default `5000`).
+- `PORT=<leaderPort>` (default `5555`).
 - `WORKDIR=<repoPathOnRemoteHosts>` (defaults to current repo path).
 - `ROOT_DIR=<folderUnderRepoForRunLogs>` (default `experiments`).
+
+If you want the leader and followers to share the same machine when using `HOSTS_FILE`, repeat that hostname on multiple lines. QUANTAS now treats each line as a separate slot, so only the selected leader slot is reserved and the remaining identical hostnames can still become followers.
+
+This makes the concrete JSON files safer to publish and reuse across machines: host-specific information now lives in your launch command or `available_hosts.txt`, not in the experiment file itself.
 
 To stop a distributed concrete run:
 
@@ -109,7 +132,7 @@ Example:
 
 ```sh
 make run_distributed_concrete \
-  INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json \
+  INPUTFILE=quantas/KademliaPeer/KademliaConcreteInput.json \
   HOSTS_FILE=available_hosts.txt \
   HOST_COUNT=5 \
   WORKDIR=/home/joglio/Quantas

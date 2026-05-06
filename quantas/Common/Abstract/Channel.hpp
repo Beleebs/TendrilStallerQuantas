@@ -14,6 +14,7 @@
 #include <deque>
 #include <random>
 #include <algorithm>
+#include <cctype>
 #include <stdexcept>
 #include <climits>
 #include <unordered_set>
@@ -49,6 +50,9 @@ public:
         minDelay = params.value("minDelay", 1);
         maxDelay = params.value("maxDelay", 1);
         std::string t = params.value("type", "UNIFORM");
+        std::transform(t.begin(), t.end(), t.begin(), [](unsigned char c) {
+            return static_cast<char>(std::toupper(c));
+        });
         if (t == "UNIFORM")  delayStyle = DelayStyle::DS_UNIFORM;
         else if (t == "POISSON") delayStyle = DelayStyle::DS_POISSON;
         else if (t == "ONE") delayStyle = DelayStyle::DS_ONE;
@@ -188,6 +192,7 @@ public:
 
     // Called by the target to remove packets from the queue
     Packet popPacket();
+    void clear();
 
     // Helpers
     bool empty() const {return _packetQueue.empty();}

@@ -1,0 +1,159 @@
+{
+  "algorithms": [
+    "ChordPeer/ChordPeer.cpp"
+  ],
+  "experiments": [
+    {
+      "id": "paper/chord/abstract/ChordScale128",
+      "seed": 7128,
+      "threadCount": 48,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 128,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 128,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/abstract/ChordScale256",
+      "seed": 7256,
+      "threadCount": 48,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 256,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 256,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/abstract/ChordScale512",
+      "seed": 7512,
+      "threadCount": 48,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 512,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 512,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/abstract/ChordScale1024",
+      "seed": 8024,
+      "threadCount": 48,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 1024,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 1024,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/abstract/ChordScale2048",
+      "seed": 9048,
+      "threadCount": 48,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 2048,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 2048,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/abstract/ChordScale4096",
+      "seed": 11096,
+      "threadCount": 48,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 4096,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 4096,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/abstract/ChordScale8192",
+      "seed": 15192,
+      "threadCount": 48,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 8192,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 8192,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/abstract/ChordScale16384",
+      "seed": 23384,
+      "threadCount": 48,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 16384,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 16384,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    }
+  ]
+}

@@ -1,0 +1,307 @@
+{
+  "algorithms": [
+    "AltBitPeer/AltBitPeer.cpp"
+  ],
+  "experiments": [
+    {
+      "id": "paper/altbit/AltBitDropP00",
+      "seed": 5200,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "reorderProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 1
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/altbit/AltBitDropP05",
+      "seed": 5205,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.05,
+        "duplicateProbability": 0.00,
+        "reorderProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 1
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/altbit/AltBitDropP10",
+      "seed": 5210,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.10,
+        "duplicateProbability": 0.00,
+        "reorderProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 1
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/altbit/AltBitDropP20",
+      "seed": 5220,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.20,
+        "duplicateProbability": 0.00,
+        "reorderProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 1
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/altbit/AltBitDropP30",
+      "seed": 5230,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.30,
+        "duplicateProbability": 0.00,
+        "reorderProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 1
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/altbit/AltBitDropP40",
+      "seed": 5240,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.40,
+        "duplicateProbability": 0.00,
+        "reorderProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 1
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/altbit/AltBitDelayD1",
+      "seed": 5301,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "reorderProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 3
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/altbit/AltBitDelayD2",
+      "seed": 5302,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 2,
+        "dropProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "reorderProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 3
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/altbit/AltBitDelayD3",
+      "seed": 5303,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 3,
+        "dropProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "reorderProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 3
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/altbit/AltBitDelayD4",
+      "seed": 5304,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 4,
+        "dropProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "reorderProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 3
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/altbit/AltBitDelayD5",
+      "seed": 5305,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 5,
+        "dropProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "reorderProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 3
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/altbit/AltBitDelayD6",
+      "seed": 5306,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 6,
+        "dropProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "reorderProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 2
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 3
+      },
+      "tests": 10,
+      "rounds": 200
+    }
+  ]
+}

@@ -9,8 +9,11 @@
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 16
+      },
       "topology": {
-        "type": "complete",
+        "type": "kademlia",
         "initialPeers": 16,
         "initialPeerType": "KademliaPeer"
       },
@@ -23,8 +26,11 @@
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 32
+      },
       "topology": {
-        "type": "complete",
+        "type": "kademlia",
         "initialPeers": 32,
         "initialPeerType": "KademliaPeer"
       },
@@ -37,8 +43,11 @@
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 64
+      },
       "topology": {
-        "type": "complete",
+        "type": "kademlia",
         "initialPeers": 64,
         "initialPeerType": "KademliaPeer"
       },
@@ -52,8 +61,11 @@
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 128
+      },
       "topology": {
-        "type": "complete",
+        "type": "kademlia",
         "initialPeers": 128,
         "initialPeerType": "KademliaPeer"
       },

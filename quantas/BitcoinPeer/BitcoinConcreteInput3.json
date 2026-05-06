@@ -3,7 +3,6 @@
     "BitcoinPeer/BitcoinPeer.cpp"
   ],
   "concrete": {
-    "leader": { "id": 0, "ip": "10.37.7.31", "port": 5000 },
     "peersPerProcess": 1000,
     "stopCondition": { "type": "time", "milliseconds": 10000 }
   },

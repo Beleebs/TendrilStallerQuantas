@@ -34,6 +34,7 @@ public:
     void initParameters(const std::vector<Peer*>& peers, json parameters) override;
     void performComputation() override;
     void endOfRound(std::vector<Peer*>& peers) override;
+    void endOfExperiment(std::vector<Peer*>& peers) override;
 
 private:
     // high-level workflow
@@ -42,8 +43,6 @@ private:
     void submitLookup(int transactionId);
 
     // helpers
-    void applyGlobalParameters();
-    void ensureInitialized();
     std::string getBinaryId(interfaceId id) const;
     interfaceId findRoute(const std::string& targetBinaryId,
                           interfaceId targetId,
@@ -60,18 +59,19 @@ private:
                            int transactionId) const;
 
     static int s_currentTransactionId;
-    static std::vector<interfaceId> s_allPeerIds;
-    static int s_binaryIdSize;
 
     int _binaryIdSize{0};
+    int _networkSize{1};
     std::string _binaryId{""};
-    std::vector<interfaceId> _allPeerIds;
     std::vector<KademliaFinger> _fingers;
     size_t _lastNeighborFingerprint{0};
 
     int _requestsSatisfied{0};
     int _totalHops{0};
+    int _maxHops{0};
     int _latency{0};
+    int _stopAfterSatisfiedRequests{-1};
+    bool _stopRequested{false};
     bool _alive{true};
     bool _initialized{false};
 };
