@@ -75,6 +75,10 @@ make run_distributed_concrete \
 
 Example with `available_hosts.txt`:
 
+First create `available_hosts.txt` in the repo root by copying [example_hosts.txt](/home/joglio/Quantas/example_hosts.txt:1) and replacing the example entries with the hosts you want to use, one host per line.
+
+This is to prevent the public posting of host names/ips.
+
 ```sh
 make run_distributed_concrete \
   INPUTFILE=quantas/KademliaPeer/KademliaConcreteInput.json \
