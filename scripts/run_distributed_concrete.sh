@@ -164,6 +164,23 @@ REMOTE_RUN_DIR="${WORKDIR}/${RUN_ROOT_NAME}/${TIMESTAMP}"
 REMOTE_QUANTAS_DIR="${REMOTE_RUN_DIR}/quantas"
 REMOTE_LAUNCHER_DIR="${REMOTE_RUN_DIR}/launcher"
 
+is_local_host() {
+    local host="$1"
+    case "$host" in
+        localhost|127.0.0.1|::1)
+            return 0
+            ;;
+    esac
+
+    local local_host=""
+    local local_fqdn=""
+    local short_host="${host%%.*}"
+    local_host="$(hostname 2>/dev/null || true)"
+    local_fqdn="$(hostname -f 2>/dev/null || true)"
+
+    [[ "$host" == "$local_host" || "$host" == "$local_fqdn" || "$short_host" == "$local_host" ]]
+}
+
 runtime_env() {
     local role="$1"
     local host="$2"
@@ -180,14 +197,22 @@ REMOTE_FOLLOWER_CMD_BASE="make MODE=concrete run INPUTFILE=${INPUTFILE}"
 
 prepare_remote_dirs() {
     local host="$1"
-    ssh -n "$host" "mkdir -p $(printf '%q' "$REMOTE_QUANTAS_DIR") $(printf '%q' "$REMOTE_LAUNCHER_DIR")"
+    if is_local_host "$host"; then
+        mkdir -p "$REMOTE_QUANTAS_DIR" "$REMOTE_LAUNCHER_DIR"
+    else
+        ssh -n "$host" "mkdir -p $(printf '%q' "$REMOTE_QUANTAS_DIR") $(printf '%q' "$REMOTE_LAUNCHER_DIR")"
+    fi
 }
 
 run_remote() {
     local host="$1"
     local command="$2"
     prepare_remote_dirs "$host"
-    ssh -n "$host" "cd $(printf '%q' "$WORKDIR") && ${command}"
+    if is_local_host "$host"; then
+        (cd "$WORKDIR" && eval "${command}")
+    else
+        ssh -n "$host" "cd $(printf '%q' "$WORKDIR") && ${command}"
+    fi
 }
 
 write_remote_script() {
@@ -200,7 +225,25 @@ write_remote_script() {
     local remote_script="/tmp/quantas_${TIMESTAMP}_${role}_${safe_host}_${instance_label}.sh"
 
     prepare_remote_dirs "$host"
-    ssh -n "$host" "cat > $(printf '%q' "$remote_script") <<EOF
+    if is_local_host "$host"; then
+        cat > "$remote_script" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+trap 'rm -f $(printf '%q' "$remote_script")' EXIT
+cd $(printf '%q' "$WORKDIR")
+export QUANTAS_RUN_DIR=$(printf '%q' "$REMOTE_RUN_DIR")
+export QUANTAS_HOSTNAME=$(printf '%q' "$host")
+export QUANTAS_PROCESS_ROLE=$(printf '%q' "$role")
+exec >> $(printf '%q' "$launcher_log") 2>&1
+echo "[\$(date +%Y-%m-%dT%H:%M:%S)] starting ${role} on \$(hostname -f 2>/dev/null || hostname)"
+${command}
+status=\$?
+echo "[\$(date +%Y-%m-%dT%H:%M:%S)] finished ${role} with status \$status"
+exit \$status
+EOF
+        chmod +x "$remote_script"
+    else
+        ssh -n "$host" "cat > $(printf '%q' "$remote_script") <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 trap 'rm -f $(printf '%q' "$remote_script")' EXIT
@@ -216,6 +259,7 @@ echo \"[\$(date +%Y-%m-%dT%H:%M:%S)] finished ${role} with status \$status\"
 exit \$status
 EOF
 chmod +x $(printf '%q' "$remote_script")"
+    fi
 }
 
 start_remote_background() {
@@ -227,18 +271,34 @@ start_remote_background() {
     local remote_script="/tmp/quantas_${TIMESTAMP}_${role}_${safe_host}_${instance_label}.sh"
 
     write_remote_script "$host" "$role" "$instance_label" "$command"
-    ssh -f -n "$host" "setsid $(printf '%q' "$remote_script") >/dev/null 2>&1 </dev/null & exit 0"
+    if is_local_host "$host"; then
+        nohup "$remote_script" >/dev/null 2>&1 </dev/null &
+    else
+        ssh -f -n "$host" "setsid $(printf '%q' "$remote_script") >/dev/null 2>&1 </dev/null & exit 0"
+    fi
     echo "started ${role} on ${host} (${instance_label})"
 }
 
 stop_remote() {
     local host="$1"
-    ssh -n "$host" "cd $(printf '%q' "$WORKDIR") && make kill"
+    if is_local_host "$host"; then
+        (cd "$WORKDIR" && make kill)
+    else
+        ssh -n "$host" "cd $(printf '%q' "$WORKDIR") && make kill"
+    fi
 }
 
 resolve_host_ip() {
     local host="$1"
-    ssh -n "$host" "hostname -I 2>/dev/null | awk '{print \$1}'"
+    if is_local_host "$host"; then
+        if [[ "$host" == "localhost" || "$host" == "127.0.0.1" || "$host" == "::1" ]]; then
+            printf '127.0.0.1\n'
+        else
+            hostname -I 2>/dev/null | awk '{print $1}'
+        fi
+    else
+        ssh -n "$host" "hostname -I 2>/dev/null | awk '{print \$1}'"
+    fi
 }
 
 LEADER_IP="$(resolve_host_ip "$LEADER_HOST")"

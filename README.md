@@ -79,6 +79,8 @@ First create `available_hosts.txt` in the repo root by copying [example_hosts.tx
 
 This is to prevent the public posting of host names/ips.
 
+If the file contains `localhost`, `127.0.0.1`, or the current machine hostname, QUANTAS launches those processes locally without using SSH. Repeating `localhost` on multiple lines is a supported way to run a leader plus multiple followers on one machine.
+
 ```sh
 make run_distributed_concrete \
   INPUTFILE=quantas/KademliaPeer/KademliaConcreteInput.json \
