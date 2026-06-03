@@ -52,6 +52,9 @@ namespace quantas {
             // add genesis to the known blocks and add the coinbase transaction to known txs
             p->knownBlocks_[genesis.id] = genesis;
             p->knownTxs_.insert(std::make_pair(genesis.cbTx.id, genesis.cbTx));
+
+            // next, setup each node with a new first block
+
         }
 
     }
@@ -78,8 +81,7 @@ namespace quantas {
             auto bkIt = knownBlocks_.find(topBlockID_);
             for (auto& t : mempool_) {
                 // check to see if the transaction is not already confirmed
-                auto txIt = knownTxs_.find(t.id);
-                if (txIt == knownTxs_.end() && topBlockID_ != -1 && bkIt != knownBlocks_.end()) {
+                if (topBlockID_ != -1 && bkIt != knownBlocks_.end()) {
                     // insert transaction into block
                     bkIt->second.txs.insert(t);
                     // increment number of transactions in block
@@ -91,6 +93,11 @@ namespace quantas {
         // 2. Mine head block
         int blockResult = (rand() % 100) + 1;
         if (blockResult >= 100 - (100 * mineProbability_)) {
+            // block is mined, meaning that it needs to stop inserting transactions
+            // any transactions found in the block need to be removed from mempool as well
+            auto it = knownBlocks_.find(topBlockID_);
+            // also, the block is inserted into known blocks
+            // topBlockID_ is set to the id of the current block
 
         }
 
@@ -168,7 +175,14 @@ namespace quantas {
                 }
             }
             else if (msg.contains("type") && msg["type"] == "block") {
-                // incoming blocks need to first go through each 
+                // incoming blocks need to be checked for similar id/prev id with topBlockID_
+                auto it = knownBlocks_.find(topBlockID_);
+                auto it2 = knownBlocks_.find(it->second.prevID);
+                if (it2->second.id == msg["contents"]["prevID"]) {
+                    int prevBlock = it2->second.id;
+                    topBlockID_ = msg["contents"]["blockID"];
+                }
+                // else, discard block
             }
             else if (msg.contains("type") && msg["type"] == "reqtx") {
                 // do later
