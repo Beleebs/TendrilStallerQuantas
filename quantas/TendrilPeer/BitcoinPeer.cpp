@@ -68,9 +68,6 @@ namespace quantas {
             - if mined, broadcast to all connections
         3. Try making transaction
             - if successful, broadcast transaction
-        4. Remove confirmed transactions from mempool
-            - not entirely sure how this will go
-            - still pretty unfamiliar with why the mempool exists
         */
 
         // 1. Check for incoming transactions/blocks, adding them to knownBlocks/knownTxs/mempool
@@ -92,16 +89,57 @@ namespace quantas {
         }
 
         // 2. Mine head block
+        int blockResult = (rand() % 100) + 1;
+        if (blockResult >= 100 - (100 * mineProbability_)) {
+
+        }
 
         // 3. Try making transaction
         // This will be done by the provided txProbability_
+        int txResult = (rand() % 100) + 1;
+        if (txResult >= 100 - (100 * txProbability_)) {
+            // make transaction with random connected peer
+            Tx newTransaction;
 
-        // 4. Remove confirmed transactions from mempool?
+            // transaction ID is calculated based off of previous highest trailing ID value found in knownTxs_
+            // for example: 20000*05* < 10000*10*
+            int highestID = 0;
+            for (auto& t : knownTxs_) {
+                int result = t.second.id % 1000000;
+                if (result > highestID) {
+                    highestID = result;
+                }
+            }
+            newTransaction.id = publicId() * 1000000 + highestID + 1;
+            newTransaction.roundSent = RoundManager::currentRound();
+            newTransaction.sender = publicId();
+
+            // find random peer to make transaction to
+            if (!neighbors().empty()) {
+                int numNeighbors = neighbors().size();
+                int index = rand() % numNeighbors;
+                auto it = neighbors().begin();
+                for (int i = 0; i < index; ++i) {
+                    ++it;
+                }
+                newTransaction.receiver = *it;
+            }
+            // add to mempool and knownTxs
+            knownTxs_.insert(std::make_pair(newTransaction.id, newTransaction));
+            mempool_.insert(newTransaction);
+
+            // broadcast the new transaction to all neighbors
+            broadcast(buildTxMessage(newTransaction));
+        }
         
     }
 
     void BitcoinPeer::endOfRound(std::vector<Peer*>& peers) {
-        // do end of simulation things
+        /*
+            List of things that need to happen:
+            1. receive blocks (if any)
+            2. remove confirmed transactions from mempool
+        */
     }
 
     void BitcoinPeer::checkInStream() {
@@ -130,7 +168,7 @@ namespace quantas {
                 }
             }
             else if (msg.contains("type") && msg["type"] == "block") {
-
+                // incoming blocks need to first go through each 
             }
             else if (msg.contains("type") && msg["type"] == "reqtx") {
                 // do later
