@@ -1,0 +1,28 @@
+{
+  "algorithms": [
+    "KademliaPeer/KademliaPeer.cpp"
+  ],
+  "concrete": {
+    "peersPerProcess": 16
+  },
+  "logging_level": "info",
+  "experiments": [
+    {
+      "id": "kademliaConcrete",
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 128
+      },
+      "topology": {
+        "type": "kademlia",
+        "initialPeers": 128,
+        "initialPeerType": "KademliaPeer"
+      },
+      "tests": 1,
+      "rounds": 100
+    }
+  ]
+}

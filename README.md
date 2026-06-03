@@ -36,6 +36,114 @@ Clone the repository, pick the algorithm/input configuration you want to exercis
    ```
    Use `make debug` for an unoptimised build with extra assertions, or `make run_memory` / `make run_debug` for valgrind and gdb helpers.
 
+## Running in Concrete Mode
+
+QUANTAS also supports concrete socket-based execution (`MODE=concrete`). The recommended way to launch concrete mode is always through `make run_distributed_concrete`, whether you are using one machine or many. The scripts in `scripts/` are internal helpers and are intended to be used through the root `makefile`. Concrete input JSON files no longer need to embed leader IPs or ports; the launcher injects `QUANTAS_IS_LEADER`, `QUANTAS_LEADER_IP`, and `QUANTAS_LEADER_PORT` at process start time instead.
+
+### Single-machine concrete run
+
+For a local concrete run, use `localhost` for the leader and follower slots. Repeating the same host is supported, so one machine can run the leader and multiple followers on distinct ports.
+
+```sh
+make run_distributed_concrete \
+  INPUTFILE=quantas/KademliaPeer/KademliaConcreteInput.json \
+  LEADER=localhost \
+  FOLLOWERS=localhost,localhost
+```
+
+You can add more local followers by repeating `localhost` more times:
+
+```sh
+make run_distributed_concrete \
+  INPUTFILE=quantas/ChordPeer/ChordConcreteInput.json \
+  LEADER=localhost \
+  FOLLOWERS=localhost,localhost,localhost
+```
+
+### Multi-host concrete run via SSH
+
+Use either an explicit leader/follower list or a hosts file.
+
+Example with explicit hosts:
+
+```sh
+make run_distributed_concrete \
+  INPUTFILE=quantas/BitcoinPeer/BitcoinConcreteInput.json \
+  LEADER=eon1 \
+  FOLLOWERS=eon1,eon2,eon3
+```
+
+Example with `available_hosts.txt`:
+
+First create `available_hosts.txt` in the repo root by copying [example_hosts.txt](/home/joglio/Quantas/example_hosts.txt:1) and replacing the example entries with the hosts you want to use, one host per line.
+
+This is to prevent the public posting of host names/ips.
+
+If the file contains `localhost`, `127.0.0.1`, or the current machine hostname, QUANTAS launches those processes locally without using SSH. Repeating `localhost` on multiple lines is a supported way to run a leader plus multiple followers on one machine.
+
+```sh
+make run_distributed_concrete \
+  INPUTFILE=quantas/KademliaPeer/KademliaConcreteInput.json \
+  HOSTS_FILE=available_hosts.txt \
+  HOST_COUNT=5
+```
+
+Optional variables:
+- `LEADER=<host>` and `FOLLOWERS=<host1,host2,...>` for explicit host assignment.
+- `LEADER_INDEX=<n>` when selecting the leader from `HOSTS_FILE`.
+- `PORT=<leaderPort>` (default `5555`).
+- `WORKDIR=<repoPathOnRemoteHosts>` (defaults to current repo path).
+- `ROOT_DIR=<folderUnderRepoForRunLogs>` (default `experiments`).
+
+If you want the leader and followers to share the same machine when using `HOSTS_FILE`, repeat that hostname on multiple lines. QUANTAS now treats each line as a separate slot, so only the selected leader slot is reserved and the remaining identical hostnames can still become followers.
+
+This makes the concrete JSON files safer to publish and reuse across machines: host-specific information now lives in your launch command or `available_hosts.txt`, not in the experiment file itself.
+
+To stop a distributed concrete run:
+
+```sh
+make stop_distributed_concrete \
+  HOSTS_FILE=available_hosts.txt \
+  HOST_COUNT=5
+```
+
+Or stop explicit hosts:
+
+```sh
+make stop_distributed_concrete HOSTS=eon1,eon2,eon3,eon4,eon5
+```
+
+Running plain `make` now prints a short usage summary with these concrete routes.
+
+### SSH setup for distributed concrete mode
+
+Distributed mode uses `ssh` from your local machine to each remote host and assumes key-based login.
+
+1. Generate an SSH key on the machine where you run `make` (skip if you already have one):
+   ```sh
+   ssh-keygen -t ed25519 -C "quantas-distributed"
+   ```
+2. Copy your public key to every remote host in `HOSTS_FILE`:
+   ```sh
+   ssh-copy-id <yourUser>@<host>
+   ```
+3. Verify passwordless access works for each host:
+   ```sh
+   ssh <yourUser>@<host> "echo ok"
+   ```
+4. Ensure QUANTAS exists at the same path on all hosts, or pass `WORKDIR=/path/to/Quantas` in the make command.
+5. On first connection to a host, accept its host key when prompted so future automated launches work.
+
+Example:
+
+```sh
+make run_distributed_concrete \
+  INPUTFILE=quantas/KademliaPeer/KademliaConcreteInput.json \
+  HOSTS_FILE=available_hosts.txt \
+  HOST_COUNT=5 \
+  WORKDIR=/home/joglio/Quantas
+```
+
 ## Simulation Input Reference
 
 A simulation is described by a JSON document with two top-level keys:
@@ -54,9 +162,10 @@ A simulation is described by a JSON document with two top-level keys:
 
 Every experiment object can contain:
 
-- `logFile`: Output destination for metrics. Use a filename to create/append to that file, or `"cout"` to emit JSON metrics on stdout.
+- `id`: Output destination for metrics. Use a filename to create/append to that file, or `"cout"` to emit JSON metrics on stdout.
 - `threadCount`: Desired worker threads for message delivery and computation. The runtime caps this at the number of peers.
 - `tests`: Repeat count for the experiment (default 1). Each repetition re-initialises the topology and random seeds.
+- `seed`: Optional unsigned integer used to seed the experiment's pseudo-random behavior. If omitted, QUANTAS generates a random seed and records the actual per-test seed in the output JSON.
 - `rounds`: Number of synchronous rounds to execute per test.
 - `distribution`: Network/channel configuration (see below).
 - `topology`: Initial network description (see below).
@@ -114,7 +223,8 @@ Feel free to embed nested objects or arrays if your algorithm benefits from rich
 
 ```json
 {
-  "logFile": "PBFTByzantine_04.txt",
+  "id": "PBFTByzantine_04",
+  "seed": 1004,
   "threadCount": 48,
   "distribution": {
     "type": "UNIFORM",
@@ -152,7 +262,7 @@ Attach faults from your algorithm’s `initParameters`. For instance, `PBFTPeer`
 
 ## Logging and Metrics
 
-`LogWriter` aggregates per-test metrics into structured JSON records. Algorithms push values during execution (for example PBFT tracks throughput, latency, and faulty confirmations). Each experiment writes its metrics at the end of the run, either to stdout (`logFile = "cout"`) or to the named log file.
+`OutputWriter` aggregates per-test metrics into structured JSON records. Algorithms push values during execution (for example PBFT tracks throughput, latency, and faulty confirmations). Each experiment writes its metrics at the end of the run, either to stdout (`id = "cout"`) or to the named log file.
 
 ## Platform Notes
 

@@ -18,11 +18,10 @@
 *.vcxproj
 *.filters
 *.user
-*.txt
 Debug/
 enc_temp_folder/
-quantas/TrailPeer/*.txt
-quantas/TrailPeer/*.png
-quantas/TrailPeer/*Log.json
-quantas/TrailPeer/*logs*/**/*
-quantas/TrailPeer/*Logs*/**/*
+.build/
+experiments/*
+!experiments/.gitkeep
+!experiments
+/available_hosts.txt

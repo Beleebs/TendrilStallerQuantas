@@ -7,33 +7,30 @@ QUANTAS is distributed in the hope that it will be useful, but WITHOUT ANY WARRA
 You should have received a copy of the GNU General Public License along with QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 */
 
-#ifndef LINEARCHORDPEER_HPP
-#define LINEARCHORDPEER_HPP
+#ifndef CHORDPEER_HPP
+#define CHORDPEER_HPP
 
 #include <set>
-#include <unordered_map>
 #include <vector>
 
 #include "../Common/Peer.hpp"
 
 namespace quantas {
 
-class LinearChordPeer : public Peer {
+class ChordPeer : public Peer {
 public:
-    LinearChordPeer(NetworkInterface* interfacePtr);
-    LinearChordPeer(const LinearChordPeer& rhs);
-    ~LinearChordPeer() override = default;
+    ChordPeer(NetworkInterface* interfacePtr);
+    ChordPeer(const ChordPeer& rhs);
+    ~ChordPeer() override = default;
 
     void initParameters(const std::vector<Peer*>& peers, json parameters) override;
     void performComputation() override;
     void endOfRound(std::vector<Peer*>& peers) override;
+    void endOfExperiment(std::vector<Peer*>& peers) override;
 
 private:
     struct FingerEntry {
         interfaceId nodeId = NO_PEER_ID;
-        size_t ringIndex = 0;
-        size_t skip = 0;              // number of logical steps around the ring
-        size_t skipNormalized = 0;    // skip modulo ring size to detect wrap-around
     };
 
     void checkInStrm();
@@ -46,19 +43,20 @@ private:
     void dispatchLookup(json msg, interfaceId nextHop, const std::set<interfaceId>& neighborSet);
     void buildFingerTable();
 
-    std::vector<interfaceId> _ringOrder;
-    std::unordered_map<interfaceId, size_t> _indexById;
     std::vector<FingerEntry> _fingers;
-    size_t _selfIndex = 0;
+    int _networkSize = 1;
     bool _initialized = false;
 
     int _requestsSatisfied = 0;
     int _totalHops = 0;
     int _totalLatency = 0;
+    int _maxHops = 0;
+    int _stopAfterSatisfiedRequests = -1;
+    bool _stopRequested = false;
 
     static int s_nextTransactionId;
 };
 
 }
 
-#endif // LINEARCHORDPEER_HPP
+#endif // CHORDPEER_HPP

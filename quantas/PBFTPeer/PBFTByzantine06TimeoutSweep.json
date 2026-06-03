@@ -1,0 +1,91 @@
+{
+  "algorithms": [
+    "PBFTPeer/PBFTPeer.cpp"
+  ],
+  "experiments": [
+    {
+      "id": "paper/pbft/PBFTByzantine06Delay10",
+      "seed": 2600,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 6,
+        "view_change_delay": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 3,
+      "rounds": 500
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine06Delay20",
+      "seed": 2601,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 6,
+        "view_change_delay": 20
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 3,
+      "rounds": 500
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine06Delay40",
+      "seed": 2602,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 6,
+        "view_change_delay": 40
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 3,
+      "rounds": 500
+    },
+    {
+      "id": "paper/pbft/PBFTByzantine06Delay80",
+      "seed": 2603,
+      "threadCount": 19,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "byzantine_count": 6,
+        "view_change_delay": 80
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 19,
+        "initialPeerType": "PBFTPeer"
+      },
+      "tests": 3,
+      "rounds": 500
+    }
+  ]
+}

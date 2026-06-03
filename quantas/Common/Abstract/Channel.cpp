@@ -80,4 +80,8 @@ Packet Channel::popPacket() {
     return p;
 }
 
+void Channel::clear() {
+    _packetQueue.clear();
+}
+
 } // end namespace quantas

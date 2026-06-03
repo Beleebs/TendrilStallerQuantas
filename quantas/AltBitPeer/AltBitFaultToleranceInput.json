@@ -1,0 +1,73 @@
+{
+  "algorithms": [
+    "AltBitPeer/AltBitPeer.cpp"
+  ],
+  "experiments": [
+    {
+      "id": "AltBitDelayOnly",
+      "seed": 2100,
+      "threadCount": 1,
+      "distribution": {
+        "type": "UNIFORM",
+        "minDelay": 1,
+        "maxDelay": 3,
+        "dropProbability": 0.0,
+        "maxMsgsRec": 1
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 4
+      },
+      "tests": 3,
+      "rounds": 80
+    },
+    {
+      "id": "AltBitModerateDrop",
+      "seed": 2110,
+      "threadCount": 1,
+      "distribution": {
+        "type": "UNIFORM",
+        "minDelay": 1,
+        "maxDelay": 2,
+        "dropProbability": 0.15,
+        "maxMsgsRec": 1
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 3
+      },
+      "tests": 3,
+      "rounds": 120
+    },
+    {
+      "id": "AltBitHeavyDrop",
+      "seed": 2120,
+      "threadCount": 1,
+      "distribution": {
+        "type": "UNIFORM",
+        "minDelay": 1,
+        "maxDelay": 2,
+        "dropProbability": 0.35,
+        "maxMsgsRec": 1
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "AltBitPeer"
+      },
+      "parameters": {
+        "timeOutRate": 3
+      },
+      "tests": 3,
+      "rounds": 140
+    }
+  ]
+}

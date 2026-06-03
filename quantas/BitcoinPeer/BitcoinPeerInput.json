@@ -4,7 +4,7 @@
   ],
   "experiments": [
     {
-      "logFile": "bitcoinRun.txt",
+      "id": "bitcoinRun",
       "threadCount": 11,
       "distribution": {
         "type": "uniform",
@@ -27,7 +27,7 @@
         }
       },
       "tests": 1,
-      "rounds": 1000
+      "rounds": 100
     }
   ]
 }

@@ -1,11 +1,13 @@
 {
   "algorithms": [
     "ExamplePeer/ExamplePeer.cpp",
-    "ExamplePeer/ExamplePeer2.cpp"
+    "ExamplePeer/ExamplePeer2.cpp",
+    "ExamplePeer/ChurnExamplePeer.cpp"
   ],
+  "logging_level": "trace",
   "experiments": [
     {
-      "logFile": "example1.txt",
+      "id": "example1",
       "threadCount": 1,
       "parameters": {
         "parameter1": 100,
@@ -26,7 +28,7 @@
       "rounds": 5
     },
     {
-      "logFile": "example2.txt",
+      "id": "example2",
       "threadCount": 1,
       "parameters": {
         "parameter1": 3.14159,
@@ -50,7 +52,7 @@
       "rounds": 3
     },
     {
-      "logFile": "example3.txt",
+      "id": "example3",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
@@ -61,8 +63,35 @@
         "initialPeers": 3,
         "initialPeerType": "ExamplePeer"
       },
-      "tests": 1,
+      "tests": 2,
       "rounds": 3
+    },
+    {
+      "id": "example_churn",
+      "threadCount": 1,
+      "parameters": {
+        "parameter1": "membership churn",
+        "parameter2": "peer id 2 leaves, peer id 3 joins later",
+        "initiallyPresentPeerIds": [0, 1, 2],
+        "initiallyAbsentPeerIds": [3],
+        "events": [
+          { "step": 2, "action": "leave", "peerId": 2 },
+          { "step": 5, "action": "join", "peerId": 2 },
+          { "step": 6, "action": "join", "peerId": 3 }
+        ]
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 4,
+        "initialPeerType": "ChurnExamplePeer"
+      },
+      "tests": 1,
+      "rounds": 8
     }
   ]
 }

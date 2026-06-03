@@ -1,4 +1,7 @@
 #include "Network.hpp"
+#include "../RandomUtil.hpp"
+
+#include <cmath>
 
 namespace quantas {
 
@@ -35,8 +38,7 @@ void Network::initNetwork(json topology) {
     }
 
     if (topology.value("identifiers", "") == "random") {
-        static std::mt19937 rng(std::random_device{}());
-        std::shuffle(_peers.begin(), _peers.end(), rng);
+        std::shuffle(_peers.begin(), _peers.end(), threadLocalEngine());
     }
 
     // pick the topology
@@ -60,6 +62,10 @@ void Network::initNetwork(json topology) {
         ring(initialPeers);
     } else if (t == "unidirectionalRing") {
         unidirectionalRing(initialPeers);
+    } else if (t == "chord") {
+        chord(initialPeers);
+    } else if (t == "kademlia") {
+        kademlia(initialPeers);
     } else if (t == "userList") {
         userList(topology);
     } else {
@@ -182,6 +188,37 @@ void Network::unidirectionalRing(int numberOfPeers) {
     }
 }
 
+void Network::chord(int numberOfPeers) {
+    if (numberOfPeers <= 1) return;
+
+    const size_t maxSkip = static_cast<size_t>(numberOfPeers - 1);
+    for (int i = 0; i < numberOfPeers; ++i) {
+        for (size_t skip = 1; skip <= maxSkip; skip <<= 1) {
+            const int neighbor =
+                static_cast<int>((static_cast<size_t>(i) + skip) % static_cast<size_t>(numberOfPeers));
+            if (neighbor == i) continue;
+            _peers[i]->addNeighbor(_peers[neighbor]->internalId());
+        }
+    }
+}
+
+void Network::kademlia(int numberOfPeers) {
+    if (numberOfPeers <= 1) return;
+
+    int bits = static_cast<int>(std::ceil(std::log2(static_cast<double>(numberOfPeers))));
+    if (bits <= 0) {
+        bits = 1;
+    }
+
+    for (int i = 0; i < numberOfPeers; ++i) {
+        for (int bit = 0; bit < bits; ++bit) {
+            const int neighbor = i ^ (1 << bit);
+            if (neighbor < 0 || neighbor >= numberOfPeers || neighbor == i) continue;
+            _peers[i]->addNeighbor(_peers[neighbor]->internalId());
+        }
+    }
+}
+
 void Network::userList(json topology) {
     // "list": { "0": [1,2], "1":[0], ... }
     // for each peer i, read the adjacency
@@ -202,7 +239,11 @@ void Network::receive(int begin, int end) {
     end = end < (int)_peers.size() ? end : (int)_peers.size();
     // call receive on each peer in the range
     for (int i = begin; i < end; ++i) {
-        _peers[i]->receive();
+        if (_peers[i]->isCrashed()) {
+            _peers[i]->discardInbound();
+        } else {
+            _peers[i]->receive();
+        }
     }
 }
 

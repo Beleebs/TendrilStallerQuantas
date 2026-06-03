@@ -19,6 +19,7 @@ along with QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 #ifndef RoundManager_hpp
 #define RoundManager_hpp
 
+#include <atomic>
 #include <chrono>
 
 namespace quantas {
@@ -29,6 +30,7 @@ private:
     size_t _lastRound{0};
     bool _synchronous{true};
     std::chrono::steady_clock::time_point _start_time;
+    std::atomic<bool> _stopRequested{false};
 
     // Private constructor and copy operations to enforce singleton usage:
     RoundManager() {
@@ -42,7 +44,9 @@ public:
         static RoundManager s;
         return &s;
     }
-
+    /// @brief Returns the current round. 
+    /// @brief If using synchronous it is an incremented int. 
+    /// @brief Otherwise the number of milliseconds since the start of the simulation
     static size_t currentRound() { 
         RoundManager* inst = instance();
         if (inst->_synchronous) {
@@ -78,6 +82,18 @@ public:
     static void asynchronous() {
         RoundManager* inst = instance();
         inst->_synchronous = false;
+    }
+    static void requestStop() {
+        RoundManager* inst = instance();
+        inst->_stopRequested = true;
+    }
+    static bool stopRequested() {
+        RoundManager* inst = instance();
+        return inst->_stopRequested.load();
+    }
+    static void clearStopRequest() {
+        RoundManager* inst = instance();
+        inst->_stopRequested = false;
     }
 };
 

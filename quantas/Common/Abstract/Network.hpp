@@ -63,11 +63,17 @@ public:
     void chain(int numberOfPeers);
     void ring(int numberOfPeers);
     void unidirectionalRing(int numberOfPeers);
+    void chord(int numberOfPeers);
+    void kademlia(int numberOfPeers);
     void userList(json topology);
     void createInitialChannels();
 
     // -------------- Specialized Initilization ------------
     void initParameters(json parameters) {
+        if (!parameters.is_object()) {
+            parameters = json::object();
+        }
+        parameters["__initialPeers"] = _peers.size();
         _peers[0]->initParameters(_peers, parameters);
     }
 
@@ -77,6 +83,8 @@ public:
     void tryPerformComputation(int begin, int end);
 
     void endOfRound() {_peers[0]->endOfRound(_peers); }
+
+    void endOfExperiment() {_peers[0]->endOfExperiment(_peers); }
 
     // -------------- Access by index --------------
     // (Might be optional if you rarely do random access.)

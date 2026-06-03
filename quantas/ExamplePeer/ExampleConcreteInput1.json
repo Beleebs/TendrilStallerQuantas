@@ -1,0 +1,64 @@
+{
+  "algorithms": [
+    "ExamplePeer/ExamplePeer.cpp",
+    "ExamplePeer/ExamplePeer2.cpp",
+    "ExamplePeer/ChurnExamplePeer.cpp"
+  ],
+  "concrete": {
+    "peersPerProcess": 4,
+    "stopCondition": { "type": "time", "milliseconds": 150 }
+  },
+  "logging_level": "trace",
+  "experiments": [
+    {
+      "id": "example1",
+      "logging_level": "trace",
+      "threadCount": 1,
+      "parameters": {
+        "parameter1": 100,
+        "parameter2": "world",
+        "changePeerType": false
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 3,
+        "maxMsgsRec": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "ExamplePeer"
+      },
+      "tests": 1,
+      "rounds": 5
+    },
+    {
+      "id": "example_churn_concrete",
+      "logging_level": "trace",
+      "threadCount": 1,
+      "parameters": {
+        "parameter1": "membership churn",
+        "parameter2": "peer id 2 leaves, peer id 3 joins later",
+        "initiallyPresentPeerIds": [0, 1, 2],
+        "initiallyAbsentPeerIds": [3],
+        "events": [
+          { "step": 30, "action": "leave", "peerId": 2 },
+          { "step": 80, "action": "join", "peerId": 2 },
+          { "step": 100, "action": "join", "peerId": 3 }
+        ]
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 4,
+        "initialPeerType": "ChurnExamplePeer"
+      },
+      "tests": 1,
+      "rounds": 1000
+    }
+  ]
+}

@@ -1,64 +1,76 @@
 {
   "algorithms": [
-    "LinearChordPeer/LinearChordPeer.cpp"
+    "ChordPeer/ChordPeer.cpp"
   ],
   "experiments": [
     {
-      "logFile": "LinearChordScale16.txt",
+      "id": "ChordScale16",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 16
+      },
       "topology": {
-        "type": "complete",
+        "type": "chord",
         "initialPeers": 16,
-        "initialPeerType": "LinearChordPeer"
+        "initialPeerType": "ChordPeer"
       },
       "tests": 5,
       "rounds": 100
     },
     {
-      "logFile": "LinearChordScale32.txt",
+      "id": "ChordScale32",
       "threadCount": 1,
       "distribution": {
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 32
+      },
       "topology": {
-        "type": "complete",
+        "type": "chord",
         "initialPeers": 32,
-        "initialPeerType": "LinearChordPeer"
+        "initialPeerType": "ChordPeer"
       },
       "tests": 5,
       "rounds": 100
     },
     {
-      "logFile": "LinearChordScale64.txt",
+      "id": "ChordScale64",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 64
+      },
       "topology": {
-        "type": "complete",
+        "type": "chord",
         "initialPeers": 64,
-        "initialPeerType": "LinearChordPeer"
+        "initialPeerType": "ChordPeer"
       },
       "tests": 5,
       "rounds": 100
     },
     {
-      "logFile": "LinearChordScale128.txt",
+      "id": "ChordScale128",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 128
+      },
       "topology": {
-        "type": "complete",
+        "type": "chord",
         "initialPeers": 128,
-        "initialPeerType": "LinearChordPeer"
+        "initialPeerType": "ChordPeer"
       },
       "tests": 5,
       "rounds": 100

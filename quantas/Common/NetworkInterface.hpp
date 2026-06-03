@@ -57,6 +57,10 @@ public:
 
     // moves msgs to the inStream if they've arrived
     virtual void receive() = 0;
+    virtual void discardInbound() {
+        std::lock_guard<std::mutex> lock(_inStream_mtx);
+        _inStream.clear();
+    }
 
     // Clear everything
     virtual void clearAll() {
