@@ -4,13 +4,16 @@
   ],
   "experiments": [
     {
-      "logFile": "KademliaScale16.txt",
+      "id": "KademliaScale16",
       "distribution": {
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 16
+      },
       "topology": {
-        "type": "complete",
+        "type": "kademlia",
         "initialPeers": 16,
         "initialPeerType": "KademliaPeer"
       },
@@ -18,13 +21,16 @@
       "rounds": 100
     },
     {
-      "logFile": "KademliaScale32.txt",
+      "id": "KademliaScale32",
       "distribution": {
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 32
+      },
       "topology": {
-        "type": "complete",
+        "type": "kademlia",
         "initialPeers": 32,
         "initialPeerType": "KademliaPeer"
       },
@@ -32,13 +38,16 @@
       "rounds": 100
     },
     {
-      "logFile": "KademliaScale64.txt",
+      "id": "KademliaScale64",
       "distribution": {
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 64
+      },
       "topology": {
-        "type": "complete",
+        "type": "kademlia",
         "initialPeers": 64,
         "initialPeerType": "KademliaPeer"
       },
@@ -46,14 +55,17 @@
       "rounds": 100
     },
     {
-      "logFile": "KademliaScale128.txt",
+      "id": "KademliaScale128",
       "threadCount": 48,
       "distribution": {
         "type": "uniform",
         "maxDelay": 1
       },
+      "parameters": {
+        "initialPeers": 128
+      },
       "topology": {
-        "type": "complete",
+        "type": "kademlia",
         "initialPeers": 128,
         "initialPeerType": "KademliaPeer"
       },

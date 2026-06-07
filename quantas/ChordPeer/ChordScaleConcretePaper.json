@@ -1,0 +1,185 @@
+{
+  "algorithms": [
+    "ChordPeer/ChordPeer.cpp"
+  ],
+  "concrete": {},
+  "logging_level": "info",
+  "experiments": [
+    {
+      "id": "paper/chord/concrete/ChordScale128",
+      "seed": 8128,
+      "threadCount": 13,
+      "concrete": {
+        "peersPerProcess": 13
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 128,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 128,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/concrete/ChordScale256",
+      "seed": 8256,
+      "threadCount": 26,
+      "concrete": {
+        "peersPerProcess": 26
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 256,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 256,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/concrete/ChordScale512",
+      "seed": 8512,
+      "threadCount": 48,
+      "concrete": {
+        "peersPerProcess": 52
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 512,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 512,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/concrete/ChordScale1024",
+      "seed": 9024,
+      "threadCount": 48,
+      "concrete": {
+        "peersPerProcess": 103
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 1024,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 1024,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/concrete/ChordScale2048",
+      "seed": 10048,
+      "threadCount": 48,
+      "concrete": {
+        "peersPerProcess": 205
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 2048,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 2048,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/concrete/ChordScale4096",
+      "seed": 12096,
+      "threadCount": 48,
+      "concrete": {
+        "peersPerProcess": 410
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 4096,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 4096,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/concrete/ChordScale8192",
+      "seed": 16192,
+      "threadCount": 48,
+      "concrete": {
+        "peersPerProcess": 820
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 8192,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 8192,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/chord/concrete/ChordScale16384",
+      "seed": 24384,
+      "threadCount": 48,
+      "concrete": {
+        "peersPerProcess": 1639
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 16384,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 16384,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 10
+    }
+  ]
+}

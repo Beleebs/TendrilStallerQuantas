@@ -58,6 +58,7 @@ public:
     
     // moves msgs from the channel to the inStream if they've arrived
     inline void receive() override;
+    inline void discardInbound() override;
 
     inline void clearAll() override {
         _inStream.clear();
@@ -98,6 +99,16 @@ inline void NetworkInterfaceAbstract::receive() {
             _inStream.push_back(std::move(arrivedPkt));
             ++recCount;
         }
+    }
+}
+
+inline void NetworkInterfaceAbstract::discardInbound() {
+    {
+        std::lock_guard<std::mutex> lock(_inStream_mtx);
+        _inStream.clear();
+    }
+    for (auto it = _inBoundChannels.begin(); it != _inBoundChannels.end(); ++it) {
+        it->second->clear();
     }
 }
 

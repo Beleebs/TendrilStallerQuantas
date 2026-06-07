@@ -1,0 +1,447 @@
+{
+  "algorithms": [
+    "StableDataLinkPeer/StableDataLinkPeer.cpp"
+  ],
+  "experiments": [
+    {
+      "id": "paper/sdl/StableDataLinkDropP00",
+      "seed": 6200,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "reorderProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkDropP05",
+      "seed": 6205,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.05,
+        "reorderProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkDropP10",
+      "seed": 6210,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.10,
+        "reorderProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkDropP20",
+      "seed": 6220,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.20,
+        "reorderProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkDropP30",
+      "seed": 6230,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.30,
+        "reorderProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkReorderP00",
+      "seed": 6300,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "reorderProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkReorderP05",
+      "seed": 6305,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "reorderProbability": 0.05,
+        "duplicateProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkReorderP10",
+      "seed": 6310,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "reorderProbability": 0.10,
+        "duplicateProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkReorderP20",
+      "seed": 6320,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "reorderProbability": 0.20,
+        "duplicateProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkReorderP30",
+      "seed": 6330,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "reorderProbability": 0.30,
+        "duplicateProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkDuplicateP00",
+      "seed": 6400,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "reorderProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkDuplicateP05",
+      "seed": 6405,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "reorderProbability": 0.00,
+        "duplicateProbability": 0.05,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkDuplicateP10",
+      "seed": 6410,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "reorderProbability": 0.00,
+        "duplicateProbability": 0.10,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkDuplicateP20",
+      "seed": 6420,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "reorderProbability": 0.00,
+        "duplicateProbability": 0.20,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkDuplicateP30",
+      "seed": 6430,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "reorderProbability": 0.00,
+        "duplicateProbability": 0.30,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkMixedP00",
+      "seed": 6500,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 1,
+        "dropProbability": 0.00,
+        "reorderProbability": 0.00,
+        "duplicateProbability": 0.00,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkMixedP05",
+      "seed": 6505,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 2,
+        "dropProbability": 0.05,
+        "reorderProbability": 0.05,
+        "duplicateProbability": 0.025,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkMixedP10",
+      "seed": 6510,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 2,
+        "dropProbability": 0.10,
+        "reorderProbability": 0.10,
+        "duplicateProbability": 0.05,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkMixedP20",
+      "seed": 6520,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 3,
+        "dropProbability": 0.20,
+        "reorderProbability": 0.20,
+        "duplicateProbability": 0.10,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    },
+    {
+      "id": "paper/sdl/StableDataLinkMixedP30",
+      "seed": 6530,
+      "threadCount": 1,
+      "distribution": {
+        "type": "uniform",
+        "minDelay": 1,
+        "maxDelay": 4,
+        "dropProbability": 0.30,
+        "reorderProbability": 0.30,
+        "duplicateProbability": 0.15,
+        "maxMsgsRec": 1,
+        "size": 4
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 2,
+        "initialPeerType": "StableDataLinkPeer"
+      },
+      "tests": 10,
+      "rounds": 200
+    }
+  ]
+}

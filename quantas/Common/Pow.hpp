@@ -33,12 +33,24 @@ namespace quantas {
 class PoW {
 public:
     // Minimal snapshot of a block that higher layers can inspect.
-    struct BlockRecord {
+    class BlockRecord {
+    public:
         std::string hash;
         std::vector<std::string> parents;
         interfaceId miner = NO_PEER_ID;
         int height = 0;
-        bool parasite = false; // informational flag carried by miners; not interpreted here
+        bool parasite = false;
+
+        json toJson() const {
+            json output = json::object();
+            output["hash"] = hash;
+            output["parents"] = parents;
+            output["miner"] = miner;
+            output["height"] = height;
+            output["parasite"] = parasite;
+            
+            return output;
+        }
     };
 
     PoW(Committee* committee)
@@ -65,8 +77,6 @@ public:
     BlockRecord registerBlock(const std::string& hash,
                               const std::vector<std::string>& parents,
                               interfaceId miner,
-                              int /*seenRound*/,
-                              int /*minedRound*/,
                               bool parasiteFlag = false) {
         auto existing = _blocks.find(hash);
         if (existing != _blocks.end()) {
@@ -119,12 +129,10 @@ public:
         return selectParentsForNextBlock(bestTip());
     }
 
-    std::vector<BlockRecord> allBlocks() const {
-        std::vector<BlockRecord> records;
-        records.reserve(_blocks.size());
-
+    json allBlocks() const {
+        json records = json::array();
         for (const auto& entry : _blocks) {
-            records.push_back(entry.second);
+            records.push_back(entry.second.toJson());
         }
         return records;
     }
@@ -171,6 +179,21 @@ protected:
         return {"GENESIS"};
     }
 
+    virtual std::string selectBestHash() const {
+        const BlockRecord* best = nullptr;
+        std::string bestHash = "GENESIS";
+        for (const auto& entry : _blocks) {
+            const std::string& hash = entry.first;
+            if (!hasFullAncestry(hash)) continue;
+            const BlockRecord& record = entry.second;
+            if (!best || preferCandidate(record, best)) {
+                best = &record;
+                bestHash = hash;
+            }
+        }
+        return best ? bestHash : "GENESIS";
+    }
+
     int subtreeSize(const std::string& hash) const {
         std::unordered_set<std::string> visited;
         std::vector<std::string> stack;
@@ -212,7 +235,6 @@ protected:
         return false;
     }
 
-private:
     const BlockRecord* currentBest() const {
         auto it = _blocks.find(_bestHash);
         return (it == _blocks.end()) ? nullptr : &it->second;
@@ -269,29 +291,6 @@ private:
         }
     }
 
-    void ensureBestValid() {
-        auto it = _blocks.find(_bestHash);
-        if (it != _blocks.end() && hasFullAncestry(_bestHash)) {
-            return;
-        }
-        const BlockRecord* best = nullptr;
-        std::string bestHash = "GENESIS";
-        for (const auto& entry : _blocks) {
-            const std::string& hash = entry.first;
-            if (!hasFullAncestry(hash)) continue;
-            const BlockRecord& record = entry.second;
-            if (!best || preferCandidate(record, best)) {
-                best = &record;
-                bestHash = hash;
-            }
-        }
-        if (best) {
-            _bestHash = bestHash;
-        } else {
-            _bestHash = "GENESIS";
-        }
-    }
-
     void propagateUpdates(const std::string& root) {
         std::deque<std::string> queue;
         queue.push_back(root);
@@ -309,7 +308,7 @@ private:
                 }
             }
         }
-        ensureBestValid();
+        _bestHash = selectBestHash();
     }
     // gets the height of a block from its blockRecord data
     int heightOf(const std::string& hash) const {
@@ -317,6 +316,7 @@ private:
         return (it == _blocks.end()) ? 0 : it->second.height;
     }
 
+protected:
     Committee* _committee; // peers in this PoW instance
     std::unordered_map<std::string, BlockRecord> _blocks; // record of all blocks this peer has heard of
     std::string _bestHash; // current best tip to mine on

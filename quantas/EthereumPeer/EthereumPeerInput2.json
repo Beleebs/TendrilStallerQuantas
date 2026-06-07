@@ -1,0 +1,28 @@
+{
+  "algorithms": [
+    "EthereumPeer/EthereumPeer.cpp"
+  ],
+  "experiments": [
+    {
+      "id": "EthereumRun",
+      "threadCount": 11,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 50,
+        "initialPeerType": "EthereumPeer"
+      },
+      "parameters": {
+        "submitRate": 10,
+        "defaultMineRate": 1,
+        "mineScaler": 1
+      },
+      "tests": 1,
+      "rounds": 500
+    }
+  ]
+}

@@ -25,6 +25,12 @@ static bool registerExamplePeer = []() {
         [](interfaceId pubId) { return new ExamplePeer(new NetworkInterfaceAbstract(pubId)); });
 }();
 
+static bool registerExamplePeerConcrete = []() {
+    return PeerRegistry::registerPeerType(
+        "ExamplePeerConcrete",
+        [](interfaceId) { return new ExamplePeer(new NetworkInterfaceConcrete()); });
+}();
+
 ExamplePeer::ExamplePeer(NetworkInterface* networkInterface)
     : Peer(networkInterface) {}
 
@@ -36,17 +42,21 @@ ExamplePeer::ExamplePeer(const ExamplePeer& rhs)
 
 ExamplePeer::~ExamplePeer() = default;
 
-void ExamplePeer::initParameters(std::vector<Peer*>& peers, json parameters) {
+void ExamplePeer::initParameters(const std::vector<Peer*>& peers, json parameters) {
+    if (!parameters.is_object()) {
+        parameters = json::object();
+    }
+
     if (parameters.contains("parameter1")) {
-        LogWriter::pushValue("parameter1", parameters["parameter1"]);
+        OutputWriter::pushValue("parameter1", parameters["parameter1"]);
     }
 
     if (parameters.contains("parameter2")) {
-        LogWriter::pushValue("parameter2", parameters["parameter2"]);
+        OutputWriter::pushValue("parameter2", parameters["parameter2"]);
     }
 
     bool shouldChangeType = parameters.value("changePeerType", changePeerType);
-    LogWriter::pushValue("changePeerType", shouldChangeType);
+    OutputWriter::pushValue("changePeerType", shouldChangeType);
 
     for (Peer* peerPtr : peers) {
         if (auto* example = dynamic_cast<ExamplePeer*>(peerPtr)) {
@@ -56,7 +66,7 @@ void ExamplePeer::initParameters(std::vector<Peer*>& peers, json parameters) {
 }
 
 void ExamplePeer::performComputation() {
-    LogWriter::pushValue("performs computation", publicId());
+    OutputWriter::pushValue("performs computation", publicId());
     checkInStrm();
 
     json message = buildGreetingPayload();
@@ -80,18 +90,18 @@ void ExamplePeer::endOfRound(std::vector<Peer*>& peers) {
             example->changePeerType = false;
         }
     }
+}
 
-    if (RoundManager::lastRound() <= RoundManager::currentRound()) {
-        int total = 0;
-        for (Peer* peerPtr : peers) {
-            if (auto* first = dynamic_cast<ExamplePeer*>(peerPtr)) {
-                total += first->msgsSent;
-            } else if (auto* second = dynamic_cast<ExamplePeer2*>(peerPtr)) {
-                total += second->msgsSent;
-            }
+void ExamplePeer::endOfExperiment(std::vector<Peer*>& _peers) {
+    int total = 0;
+    for (Peer* peerPtr : _peers) {
+        if (auto* first = dynamic_cast<ExamplePeer*>(peerPtr)) {
+            total += first->msgsSent;
+        } else if (auto* second = dynamic_cast<ExamplePeer2*>(peerPtr)) {
+            total += second->msgsSent;
         }
-        LogWriter::pushValue("finalMessageCount", total);
     }
+    OutputWriter::pushValue("finalMessageCount", total);
 }
 
 NetworkInterface* ExamplePeer::releaseNetworkInterface() {
@@ -126,7 +136,7 @@ void ExamplePeer::logInboundMessage(const Packet& packet) const {
     logEntry["from"] = sender;
     logEntry["receivedRound"] = RoundManager::currentRound();
     logEntry["contents"] = payload;
-    LogWriter::pushValue("receivedMessages", logEntry);
+    OutputWriter::pushValue("receivedMessages", logEntry);
 }
 
 json ExamplePeer::buildGreetingPayload() const {
@@ -149,7 +159,7 @@ void ExamplePeer::logSentMessages(const std::vector<Peer*>& peers) const {
             total += second->msgsSent;
         }
     }
-    LogWriter::pushValue("sentMessages", total);
+    OutputWriter::pushValue("sentMessages", total);
 }
 
 } // namespace quantas

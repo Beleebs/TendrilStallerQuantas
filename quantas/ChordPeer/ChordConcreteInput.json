@@ -1,0 +1,27 @@
+{
+  "algorithms": [
+    "ChordPeer/ChordPeer.cpp"
+  ],
+  "concrete": {
+    "peersPerProcess": 16
+  },
+  "experiments": [
+    {
+      "id": "chordConcrete",
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 128
+      },
+      "topology": {
+        "type": "chord",
+        "initialPeers": 128,
+        "initialPeerType": "ChordPeer"
+      },
+      "tests": 1,
+      "rounds": 100
+    }
+  ]
+}

@@ -1,0 +1,182 @@
+{
+  "algorithms": [
+    "RaftPeer/RaftPeer.cpp"
+  ],
+  "experiments": [
+    {
+      "id": "paper/raft/RaftCrash00",
+      "seed": 2100,
+      "threadCount": 21,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "committee_id": 0,
+        "crash_count": 0,
+        "crash_odds": 0.0,
+        "submit_rate": 10,
+        "timeout_spacing": 20,
+        "timeout_jitter": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 21,
+        "initialPeerType": "RaftPeer"
+      },
+      "tests": 10,
+      "rounds": 800
+    },
+    {
+      "id": "paper/raft/RaftCrash02",
+      "seed": 2102,
+      "threadCount": 21,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "committee_id": 0,
+        "crash_count": 2,
+        "crash_odds": 0.0,
+        "submit_rate": 10,
+        "timeout_spacing": 20,
+        "timeout_jitter": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 21,
+        "initialPeerType": "RaftPeer"
+      },
+      "tests": 10,
+      "rounds": 800
+    },
+    {
+      "id": "paper/raft/RaftCrash04",
+      "seed": 2104,
+      "threadCount": 21,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "committee_id": 0,
+        "crash_count": 4,
+        "crash_odds": 0.0,
+        "submit_rate": 10,
+        "timeout_spacing": 20,
+        "timeout_jitter": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 21,
+        "initialPeerType": "RaftPeer"
+      },
+      "tests": 10,
+      "rounds": 800
+    },
+    {
+      "id": "paper/raft/RaftCrash06",
+      "seed": 2106,
+      "threadCount": 21,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "committee_id": 0,
+        "crash_count": 6,
+        "crash_odds": 0.0,
+        "submit_rate": 10,
+        "timeout_spacing": 20,
+        "timeout_jitter": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 21,
+        "initialPeerType": "RaftPeer"
+      },
+      "tests": 10,
+      "rounds": 800
+    },
+    {
+      "id": "paper/raft/RaftCrash08",
+      "seed": 2108,
+      "threadCount": 21,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "committee_id": 0,
+        "crash_count": 8,
+        "crash_odds": 0.0,
+        "submit_rate": 10,
+        "timeout_spacing": 20,
+        "timeout_jitter": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 21,
+        "initialPeerType": "RaftPeer"
+      },
+      "tests": 10,
+      "rounds": 800
+    },
+    {
+      "id": "paper/raft/RaftCrash10",
+      "seed": 2110,
+      "threadCount": 21,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "committee_id": 0,
+        "crash_count": 10,
+        "crash_odds": 0.0,
+        "submit_rate": 10,
+        "timeout_spacing": 20,
+        "timeout_jitter": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 21,
+        "initialPeerType": "RaftPeer"
+      },
+      "tests": 10,
+      "rounds": 800
+    },
+    {
+      "id": "paper/raft/RaftCrash11",
+      "seed": 2111,
+      "threadCount": 21,
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1,
+        "maxMsgsRec": 10
+      },
+      "parameters": {
+        "committee_id": 0,
+        "crash_count": 11,
+        "crash_odds": 0.0,
+        "submit_rate": 10,
+        "timeout_spacing": 20,
+        "timeout_jitter": 10
+      },
+      "topology": {
+        "type": "complete",
+        "initialPeers": 21,
+        "initialPeerType": "RaftPeer"
+      },
+      "tests": 10,
+      "rounds": 800
+    }
+  ]
+}

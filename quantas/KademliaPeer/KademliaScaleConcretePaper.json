@@ -1,0 +1,185 @@
+{
+  "algorithms": [
+    "KademliaPeer/KademliaPeer.cpp"
+  ],
+  "concrete": {},
+  "logging_level": "info",
+  "experiments": [
+    {
+      "id": "paper/kademlia/concrete/KademliaScale128",
+      "seed": 10128,
+      "threadCount": 13,
+      "concrete": {
+        "peersPerProcess": 13
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 128,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "kademlia",
+        "initialPeers": 128,
+        "initialPeerType": "KademliaPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/kademlia/concrete/KademliaScale256",
+      "seed": 10256,
+      "threadCount": 26,
+      "concrete": {
+        "peersPerProcess": 26
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 256,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "kademlia",
+        "initialPeers": 256,
+        "initialPeerType": "KademliaPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/kademlia/concrete/KademliaScale512",
+      "seed": 10512,
+      "threadCount": 48,
+      "concrete": {
+        "peersPerProcess": 52
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 512,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "kademlia",
+        "initialPeers": 512,
+        "initialPeerType": "KademliaPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/kademlia/concrete/KademliaScale1024",
+      "seed": 11024,
+      "threadCount": 48,
+      "concrete": {
+        "peersPerProcess": 103
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 1024,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "kademlia",
+        "initialPeers": 1024,
+        "initialPeerType": "KademliaPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/kademlia/concrete/KademliaScale2048",
+      "seed": 12048,
+      "threadCount": 48,
+      "concrete": {
+        "peersPerProcess": 205
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 2048,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "kademlia",
+        "initialPeers": 2048,
+        "initialPeerType": "KademliaPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/kademlia/concrete/KademliaScale4096",
+      "seed": 14096,
+      "threadCount": 48,
+      "concrete": {
+        "peersPerProcess": 410
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 4096,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "kademlia",
+        "initialPeers": 4096,
+        "initialPeerType": "KademliaPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/kademlia/concrete/KademliaScale8192",
+      "seed": 18192,
+      "threadCount": 48,
+      "concrete": {
+        "peersPerProcess": 820
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 8192,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "kademlia",
+        "initialPeers": 8192,
+        "initialPeerType": "KademliaPeer"
+      },
+      "tests": 10
+    },
+    {
+      "id": "paper/kademlia/concrete/KademliaScale16384",
+      "seed": 26384,
+      "threadCount": 48,
+      "concrete": {
+        "peersPerProcess": 1639
+      },
+      "distribution": {
+        "type": "uniform",
+        "maxDelay": 1
+      },
+      "parameters": {
+        "initialPeers": 16384,
+        "stopAfterSatisfiedRequests": 100
+      },
+      "topology": {
+        "type": "kademlia",
+        "initialPeers": 16384,
+        "initialPeerType": "KademliaPeer"
+      },
+      "tests": 10
+    }
+  ]
+}

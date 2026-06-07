@@ -15,6 +15,10 @@ QUANTAS. If not, see <https://www.gnu.org/licenses/>.
 #ifndef POWETHEREUM_HPP
 #define POWETHEREUM_HPP
 
+#include <functional>
+#include <unordered_map>
+#include <unordered_set>
+
 #include "../Common/Pow.hpp"
 
 namespace quantas {
@@ -48,6 +52,62 @@ protected:
             return candidate.height > incumbent->height;
         }
         return candidate.hash < incumbent->hash;
+    }
+
+    std::string selectBestHash() const override {
+        std::unordered_map<std::string, int> weightMemo;
+        std::unordered_set<std::string> active;
+        std::function<int(const std::string&)> subtreeWeight = [&](const std::string& hash) -> int {
+            auto memoIt = weightMemo.find(hash);
+            if (memoIt != weightMemo.end()) return memoIt->second;
+            if (!active.insert(hash).second) return 0;
+
+            int weight = _blocks.count(hash) ? 1 : 0;
+            auto childIt = _children.find(hash);
+            if (childIt != _children.end()) {
+                for (const auto& child : childIt->second) {
+                    if (_blocks.count(child)) {
+                        weight += subtreeWeight(child);
+                    }
+                }
+            }
+
+            active.erase(hash);
+            weightMemo[hash] = weight;
+            return weight;
+        };
+
+        std::string cursor = "GENESIS";
+        while (true) {
+            auto childIt = _children.find(cursor);
+            if (childIt == _children.end() || childIt->second.empty()) {
+                return cursor;
+            }
+
+            std::string bestChild;
+            int bestWeight = -1;
+            int bestHeight = -1;
+            for (const auto& child : childIt->second) {
+                auto blockIt = _blocks.find(child);
+                if (blockIt == _blocks.end() || !hasFullAncestry(child)) continue;
+
+                const int weight = subtreeWeight(child);
+                const int height = blockIt->second.height;
+                if (bestChild.empty() ||
+                    weight > bestWeight ||
+                    (weight == bestWeight && height > bestHeight) ||
+                    (weight == bestWeight && height == bestHeight && child < bestChild)) {
+                    bestChild = child;
+                    bestWeight = weight;
+                    bestHeight = height;
+                }
+            }
+
+            if (bestChild.empty()) {
+                return cursor;
+            }
+            cursor = bestChild;
+        }
     }
 };
 
