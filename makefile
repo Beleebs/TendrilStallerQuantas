@@ -22,6 +22,10 @@
 # The launcher supplies QUANTAS_IS_LEADER and QUANTAS_LEADER_IP/PORT, so
 # concrete JSON files do not need machine-specific leader addresses.
 
+
+# tendril staller implementation config
+#INPUTFILE := quantas/TendrilPeer/TendrilPeerConfig.json
+
 INPUTFILE := quantas/ExamplePeer/ExampleInput.json
 # INPUTFILE := quantas/ExamplePeer/ExampleConcreteInput1.json
 # INPUTFILE := quantas/KademliaPeer/KademliaConcreteInput.json

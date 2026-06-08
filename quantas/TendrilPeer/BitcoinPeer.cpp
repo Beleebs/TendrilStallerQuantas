@@ -7,6 +7,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
+#include <algorithm>
 
 #include "BitcoinPeer.hpp"
 #include "../Common/Peer.hpp"
@@ -60,45 +61,65 @@ namespace quantas {
     }
 
     void BitcoinPeer::performComputation() {
-        /* 
-        steps of computation: 
-        1. Check for incoming transactions/blocks
-            - if transaction found, add to current blockchain top block
-            - add to mempool?
-            - if block found, broadcast it, and add it to blockchain
-            - if fork, uhhhh do something
-        2. Try mining current head block
-            - if mined, broadcast to all connections
-        3. Try making transaction
-            - if successful, broadcast transaction
-        */
-
         // 1. Check for incoming transactions/blocks, adding them to knownBlocks/knownTxs/mempool
         checkInStream();
 
-        // goes through transactions, adds them to the current top block
+        // goes through unconfirmed transactions, adds them to the current top block
+        // updates num of transactions
         if (!mempool_.empty()) {
-            auto bkIt = knownBlocks_.find(topBlockID_);
-            for (auto& t : mempool_) {
-                // check to see if the transaction is not already confirmed
-                if (topBlockID_ != -1 && bkIt != knownBlocks_.end()) {
-                    // insert transaction into block
-                    bkIt->second.txs.insert(t);
-                    // increment number of transactions in block
-                    ++bkIt->second.numTx;
-                }
+            for (const auto& utx : mempool_) {
+                currentBlock_.txs.insert(utx);
             }
+            currentBlock_.numTx = currentBlock_.txs.size();
         }
 
-        // 2. Mine head block
+        // 2. Try mining current block
         int blockResult = (rand() % 100) + 1;
         if (blockResult >= 100 - (100 * mineProbability_)) {
-            // block is mined, meaning that it needs to stop inserting transactions
-            // any transactions found in the block need to be removed from mempool as well
-            auto it = knownBlocks_.find(topBlockID_);
-            // also, the block is inserted into known blocks
-            // topBlockID_ is set to the id of the current block
+            // when block is successfully mined:
+            // 1. broadcast block to other nodes
+            // 2. update miner state
+            // 3. create new currentBlock_ (initialize with new ids and such)
+            // 4. create transaction for mining the block
+            // 5. update currentBlock_
 
+            // 1. block successfully mined, broadcast
+            // firstly, set the round the block was mined
+            currentBlock_.roundMined = RoundManager::currentRound();
+            broadcast(buildBlockMessage(currentBlock_));
+
+            // 2. update state
+            topBlockID_ = currentBlock_.id;
+            // erase txs from mempool that were in that block
+            for (const auto& ctx : currentBlock_.txs) {
+                auto memIt = std::find(mempool_.begin(), mempool_.end(), ctx);
+                if (memIt != mempool_.end()) {
+                    mempool_.erase(memIt);
+                }
+            }
+
+            // 3. create new top block 
+            Bk newCurrentBlock;
+            // blockID similar to 
+            newCurrentBlock.id = publicId() * 1000000 + blocksMined_;
+            newCurrentBlock.height = currentBlock_.height + 1;
+            newCurrentBlock.prevID = currentBlock_.height;
+
+            // 4. create coinbase transaction for mining the block and insert
+            Tx newCBTx;
+            newCBTx.id = publicId() * 1000000 + txsMade_;
+            newCBTx.roundSent = RoundManager::currentRound();
+            newCBTx.receiver = publicId();
+            // broadcast new transaction
+            broadcast(buildTxMessage(newCBTx));
+
+            // add coinbase transaction
+            newCurrentBlock.txs.insert(newCBTx);
+            newCurrentBlock.numTx = newCurrentBlock.txs.size();
+            newCurrentBlock.cbTx = newCBTx;
+
+            // 5. update currentBlock_
+            currentBlock_ = newCurrentBlock;
         }
 
         // 3. Try making transaction
@@ -107,17 +128,9 @@ namespace quantas {
         if (txResult >= 100 - (100 * txProbability_)) {
             // make transaction with random connected peer
             Tx newTransaction;
-
-            // transaction ID is calculated based off of previous highest trailing ID value found in knownTxs_
-            // for example: 20000*05* < 10000*10*
-            int highestID = 0;
-            for (auto& t : knownTxs_) {
-                int result = t.second.id % 1000000;
-                if (result > highestID) {
-                    highestID = result;
-                }
-            }
-            newTransaction.id = publicId() * 1000000 + highestID + 1;
+            // transaction ID is calculated based on the amount of transactions the current block has made
+            // has a constraint of ~1000000 possible transactions per node (can probably be done better)
+            newTransaction.id = publicId() * 1000000 + txsMade_;
             newTransaction.roundSent = RoundManager::currentRound();
             newTransaction.sender = publicId();
 
@@ -133,20 +146,17 @@ namespace quantas {
             }
             // add to mempool and knownTxs
             knownTxs_.insert(std::make_pair(newTransaction.id, newTransaction));
-            mempool_.insert(newTransaction);
+            mempool_.push_back(newTransaction);
 
             // broadcast the new transaction to all neighbors
             broadcast(buildTxMessage(newTransaction));
+            ++txsMade_;
         }
-        
     }
 
     void BitcoinPeer::endOfRound(std::vector<Peer*>& peers) {
-        /*
-            List of things that need to happen:
-            1. receive blocks (if any)
-            2. remove confirmed transactions from mempool
-        */
+        // do something
+        // check knownBlock backlog to see if there are any blocks that arrived out of order?
     }
 
     void BitcoinPeer::checkInStream() {
@@ -168,21 +178,17 @@ namespace quantas {
                 if (it != knownTxs_.end()) {
                     // insert into knownTxs and mempool
                     knownTxs_.insert(std::make_pair(incomingTx.id, incomingTx));
-                    mempool_.insert(incomingTx);
+                    mempool_.push_back(incomingTx);
 
                     // broadcast to all neighbors
                     broadcast(buildTxMessage(incomingTx));
                 }
             }
             else if (msg.contains("type") && msg["type"] == "block") {
-                // incoming blocks need to be checked for similar id/prev id with topBlockID_
-                auto it = knownBlocks_.find(topBlockID_);
-                auto it2 = knownBlocks_.find(it->second.prevID);
-                if (it2->second.id == msg["contents"]["prevID"]) {
-                    int prevBlock = it2->second.id;
-                    topBlockID_ = msg["contents"]["blockID"];
-                }
-                // else, discard block
+                // we need to check to see if the block is first valid
+                // check prevID, make sure that it matches topBlockID_
+                // if not, ignore it
+
             }
             else if (msg.contains("type") && msg["type"] == "reqtx") {
                 // do later
@@ -199,7 +205,7 @@ namespace quantas {
 
     void BitcoinPeer::logMinedBlock(const Bk& block) {
         json payload = buildBlockMessage(block);
-        LogWriter::pushValue(std::to_string(publicId()), payload);
+        OutputWriter::pushValue(std::to_string(publicId()), payload);
     }
 
     json BitcoinPeer::buildTxMessage(const Tx& transaction) {

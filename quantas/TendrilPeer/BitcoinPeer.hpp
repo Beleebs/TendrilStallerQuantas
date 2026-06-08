@@ -38,7 +38,7 @@ namespace quantas {
             }
             // equals
             bool operator==(const Tx& rhs) {
-                return id == rhs.id && roundSent == rhs.roundSent;
+                return id == rhs.id;
             }
 
             // Transaction ID
@@ -101,9 +101,11 @@ namespace quantas {
         // Known Transactions
         std::unordered_map<int, Tx> knownTxs_;
         // Mempool for unconfirmed transactions
-        std::set<Tx> mempool_;
-        // contains the id of the current block being mined
+        std::deque<Tx> mempool_;
+        // contains the id of the most recent mined block
         int topBlockID_ = -1;
+        // block currently being mined
+        Bk currentBlock_;
 
         // probability for a block to be mined by the node
         double mineProbability_ = 0.05;
@@ -112,14 +114,8 @@ namespace quantas {
 
         // probability for transaction to be made
         double txProbability_ = 0.2;
-
-        // TODO: implement compact block relay
-        // For this implementation, BIP 152 (or Compact Block Relay) uses a list of neighbors that can
-        // send over compact blocks before fully confirming the block's validity.
-        // This has a fixed size of 3 peers, as the attackers in TendrilStaller require monopoly of a HBN list.
-        // std::vector<Peer*> highBandwidthNeighbors_;
-        // Determines whether or not a node transmits at a high bandwidth or low bandwidth
-        //bool isHighBandwidth_ = false;
+        // transactions made
+        int txsMade_ = 0;
     };
 }
 
