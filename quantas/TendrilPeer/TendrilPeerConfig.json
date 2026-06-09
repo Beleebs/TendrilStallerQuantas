@@ -8,8 +8,9 @@
         "id": "bitcoin1",
         "threadCount": 1,
         "parameters": {
+            "outputFile": "bitcoin1.txt",
             "mineProbability": 0.05,
-            "txProbability": 0.2
+            "txProbability": 0.05
         },
         "distribution": {
             "type": "uniform",
@@ -28,6 +29,7 @@
         "id": "bitcoin2",
         "threadCount": 1,
         "parameters": {
+            "outputFile": "bitcoin2.txt",
             "mineProbability": 0.05,
             "txProbability": 0.2
         },

@@ -1,6 +1,6 @@
 // Ben Leber
 // 5/20/2026
-// Implementation based off of the v0.10.0 version of Bitcoin 
+// Bitcoin Peer Implementation
 
 #include <vector>
 #include <string>
@@ -8,6 +8,8 @@
 #include <cstdlib>
 #include <ctime>
 #include <algorithm>
+#include <set>
+#include <iterator>
 
 #include "BitcoinPeer.hpp"
 #include "../Common/Peer.hpp"
@@ -29,6 +31,8 @@ namespace quantas {
     void BitcoinPeer::initParameters(const std::vector<Peer*>& peers, json parameters) {
         std::cout << "in initParameters" << std::endl;
         const std::vector<BitcoinPeer*>& bp = reinterpret_cast<const std::vector<BitcoinPeer*>&>(peers); 
+        std::cout << "after reinterpret cast" << std::endl;
+        // OutputWriter::setLogFile(parameters["outputFile"]);
 
         // init the genesis block
         Bk genesis;
@@ -42,9 +46,11 @@ namespace quantas {
         genesisTx.roundSent = 1;
         genesis.txs.insert(genesisTx);
         genesis.cbTx = genesisTx;
+        std::cout << "created genesis" << std::endl;
 
         // setup each node
         for (auto p : bp) {
+            std::cout << "setting up node: " << p->publicId() << std::endl;
             // change the probability values
             p->mineProbability_ = parameters.value("mineProbability", mineProbability_);
             p->txProbability_ = parameters.value("txProbability", txProbability_);
@@ -63,23 +69,29 @@ namespace quantas {
             newCurrentBlock.height = 1;
             p->currentBlock_ = newCurrentBlock;
         }
-
+        std::cout << "finished initParameters" << std::endl << std::endl;
     }
 
     void BitcoinPeer::performComputation() {
+        std::cout << "entered performComputation for node: " << publicId() << std::endl;
         // 1. Check for incoming transactions/blocks, adding them to knownBlocks/knownTxs/mempool
         checkInStream();
+        std::cout << "completed checkInStream" << std::endl;
 
         // goes through unconfirmed transactions, adds them to the current top block
         // updates num of transactions
+        std::cout << "adding mempool txs to current block: " << currentBlock_.id << std::endl;
         if (!mempool_.empty()) {
             for (const auto& utx : mempool_) {
+                std::cout << utx.id;
                 currentBlock_.txs.insert(utx);
             }
             currentBlock_.numTx = currentBlock_.txs.size();
+            std::cout << std::endl;
         }
 
         // 2. Try mining current block
+        std::cout << "trying to mine block: " << currentBlock_.id << std::endl;
         int blockResult = (rand() % 100) + 1;
         if (blockResult >= 100 - (100 * mineProbability_)) {
             // when block is successfully mined:
@@ -91,10 +103,12 @@ namespace quantas {
 
             // 1. block successfully mined, broadcast
             // firstly, set the round the block was mined
+            std::cout << "block mined!!" << std::endl;
             currentBlock_.roundMined = RoundManager::currentRound();
             broadcast(buildBlockMessage(currentBlock_));
 
             // 2. update state
+            std::cout << "\tupdating state" << std::endl;
             topBlockID_ = currentBlock_.id;
             // erase txs from mempool that were in that block
             for (const auto& ctx : currentBlock_.txs) {
@@ -105,6 +119,7 @@ namespace quantas {
             }
 
             // 3. create new top block 
+            std::cout << "\tcreating new top block" << std::endl;
             Bk newCurrentBlock;
             // blockID similar to 
             newCurrentBlock.id = publicId() * 1000000 + blocksMined_;
@@ -112,6 +127,7 @@ namespace quantas {
             newCurrentBlock.prevID = currentBlock_.height;
 
             // 4. create coinbase transaction for mining the block and insert
+            std::cout << "\tcreating coinbase transaction" << std::endl;
             Tx newCBTx;
             newCBTx.id = publicId() * 1000000 + txsMade_;                               // change this
             newCBTx.roundSent = RoundManager::currentRound();
@@ -125,13 +141,16 @@ namespace quantas {
             newCurrentBlock.cbTx = newCBTx;
 
             // 5. update currentBlock_
+            std::cout << "\tfinishing block mining" << std::endl;
             currentBlock_ = newCurrentBlock;
         }
 
         // 3. Try making transaction
         // This will be done by the provided txProbability_
+        std::cout << "attempting transaction" << std::endl;
         int txResult = (rand() % 100) + 1;
         if (txResult >= 100 - (100 * txProbability_)) {
+            std::cout << "created new transaction: ";
             // make transaction with random connected peer
             Tx newTransaction;
             // transaction ID is calculated based on the amount of transactions the current block has made
@@ -139,25 +158,43 @@ namespace quantas {
             newTransaction.id = publicId() * 1000000 + txsMade_;
             newTransaction.roundSent = RoundManager::currentRound();
             newTransaction.sender = publicId();
+            std::cout << newTransaction.id << std::endl;
+            for (int i = 0; i < neighbors().size(); ++i) {
+                std::cout << i << " ";
+            }
+            std::cout << std::endl;
 
             // find random peer to make transaction to
+            std::cout << "\tselecting random neighbor: ";
+
+            std::cout << "ok lets do this" << std::endl;
+
             if (!neighbors().empty()) {
+                std::cout << "\tinto the if statement" << std::endl;
                 int numNeighbors = neighbors().size();
                 int index = rand() % numNeighbors;
+                std::cout << "\tfound index: " << index << std::endl;
                 auto it = neighbors().begin();
                 for (int i = 0; i < index; ++i) {
+                    std::cout << "\tbefore dereferencing an iterator" << std::endl;
                     ++it;
+                    std::cout << "\tafter: " << *it << std::endl;
                 }
+                std::cout << "\tdecided receiver: ";
                 newTransaction.receiver = *it;
+                std::cout << newTransaction.receiver << std::endl;
             }
             // add to mempool and knownTxs
+            std::cout << "\tadding to mempool/knownTxs" << std::endl;
             knownTxs_.insert(std::make_pair(newTransaction.id, newTransaction));
             mempool_.push_back(newTransaction);
 
             // broadcast the new transaction to all neighbors
+            std::cout << "\tbroadcasting transaction" << std::endl;
             broadcast(buildTxMessage(newTransaction));
             ++txsMade_;
         }
+        std::cout << "finished performComputation" << std::endl << std::endl;
     }
 
     void BitcoinPeer::endOfRound(std::vector<Peer*>& peers) {
@@ -184,6 +221,7 @@ namespace quantas {
     }
 
     void BitcoinPeer::checkInStream() {
+        std::cout << "in checkInStream" << std::endl;
         while(!inStreamEmpty()) {
             Packet packet = popInStream();
             json msg = packet.getMessage();
