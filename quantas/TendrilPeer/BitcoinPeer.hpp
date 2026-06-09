@@ -27,17 +27,18 @@ namespace quantas {
         void initParameters(const std::vector<Peer*>& peers, json parameters) override;
         void performComputation() override;
         void endOfRound(std::vector<Peer*>& peers) override;
+        void endOfExperiment(std::vector<Peer*>& peers) override;
     
     private:
         // Transaction interface
         struct Tx {
             // comparison overloading
             // less than
-            bool operator<(const Tx& rhs) {
+            bool operator<(const Tx& rhs) const {
                 return roundSent < rhs.roundSent;
             }
             // equals
-            bool operator==(const Tx& rhs) {
+            bool operator==(const Tx& rhs) const {
                 return id == rhs.id;
             }
 
@@ -56,12 +57,12 @@ namespace quantas {
         // block structure
         struct Bk {
             // based on time/round mined
-            bool operator<(const Bk& rhs) {
+            bool operator<(const Bk& rhs) const {
                 return roundMined < rhs.roundMined;
             }
 
-            bool operator==(const Bk& rhs) {
-                return id == rhs.id && txs == rhs.txs;
+            bool operator==(const Bk& rhs) const {
+                return id == rhs.id;
             }
 
             // header information
@@ -94,8 +95,11 @@ namespace quantas {
         json buildBlockMessage(const Bk&);
         // builds json message for transactions
         json buildTxMessage(const Tx&);
+        // builds a transaction/block from an incoming message
+        Tx buildTxFromMessage(const json&);
+        Bk buildBlockFromMessage(const json&);
 
-        // BLOCKCHAIN SPECIFIC FUNCTIONS
+        // BLOCKCHAIN SPECIFIC FUNCTIONS/VARIABLES
         // Known Blocks
         std::unordered_map<int, Bk> knownBlocks_;
         // Known Transactions

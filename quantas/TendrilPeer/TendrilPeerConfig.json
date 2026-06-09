@@ -1,0 +1,48 @@
+{
+    "algorithms": [
+        "TendrilPeer/BitcoinPeer.cpp"
+    ],
+    "logging_level": "trace",
+    "experiments": [
+        {
+        "id": "bitcoin1",
+        "threadCount": 1,
+        "parameters": {
+            "mineProbability": 0.05,
+            "txProbability": 0.2
+        },
+        "distribution": {
+            "type": "uniform",
+            "maxDelay": 3,
+            "maxMsgsRec": 10
+        },
+        "topology": {
+            "type": "complete",
+            "initialPeers": 5,
+            "initialPeerType": "BitcoinPeer"
+        },
+        "tests": 1,
+        "rounds": 5
+        },
+        {
+        "id": "bitcoin2",
+        "threadCount": 1,
+        "parameters": {
+            "mineProbability": 0.05,
+            "txProbability": 0.2
+        },
+        "distribution": {
+            "type": "uniform",
+            "maxDelay": 3,
+            "maxMsgsRec": 10
+        },
+        "topology": {
+            "type": "complete",
+            "initialPeers": 10,
+            "initialPeerType": "BitcoinPeer"
+        },
+        "tests": 1,
+        "rounds": 5
+        }
+    ]
+}

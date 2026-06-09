@@ -27,35 +27,41 @@ namespace quantas {
 
     // sets the parameters for each node
     void BitcoinPeer::initParameters(const std::vector<Peer*>& peers, json parameters) {
+        std::cout << "in initParameters" << std::endl;
         const std::vector<BitcoinPeer*>& bp = reinterpret_cast<const std::vector<BitcoinPeer*>&>(peers); 
 
         // init the genesis block
         Bk genesis;
         genesis.id = 1;
         genesis.height = 0;
-        genesis.prevID = NULL;
+        genesis.prevID = 0;
         genesis.roundMined = 1;
         genesis.numTx = 1;
-        genesis.txs = { 
-            {1, 1} 
-        };
-        genesis.cbTx = *genesis.txs.begin();
+        Tx genesisTx;
+        genesisTx.id = 1;
+        genesisTx.roundSent = 1;
+        genesis.txs.insert(genesisTx);
+        genesis.cbTx = genesisTx;
 
         // setup each node
         for (auto p : bp) {
             // change the probability values
             p->mineProbability_ = parameters.value("mineProbability", mineProbability_);
             p->txProbability_ = parameters.value("txProbability", txProbability_);
-            
+
             // set the top block ID to the genesis node
-            p->topBlockID_ = genesis.id;
+            p->topBlockID_ = 1;
 
             // add genesis to the known blocks and add the coinbase transaction to known txs
-            p->knownBlocks_[genesis.id] = genesis;
+            p->knownBlocks_.insert(std::make_pair(genesis.id, genesis));
             p->knownTxs_.insert(std::make_pair(genesis.cbTx.id, genesis.cbTx));
 
             // next, setup each node with a new first block
-
+            Bk newCurrentBlock;
+            newCurrentBlock.id = p->publicId() * 1000000 + 1;
+            newCurrentBlock.prevID = p->topBlockID_;
+            newCurrentBlock.height = 1;
+            p->currentBlock_ = newCurrentBlock;
         }
 
     }
@@ -107,7 +113,7 @@ namespace quantas {
 
             // 4. create coinbase transaction for mining the block and insert
             Tx newCBTx;
-            newCBTx.id = publicId() * 1000000 + txsMade_;
+            newCBTx.id = publicId() * 1000000 + txsMade_;                               // change this
             newCBTx.roundSent = RoundManager::currentRound();
             newCBTx.receiver = publicId();
             // broadcast new transaction
@@ -157,6 +163,24 @@ namespace quantas {
     void BitcoinPeer::endOfRound(std::vector<Peer*>& peers) {
         // do something
         // check knownBlock backlog to see if there are any blocks that arrived out of order?
+        int totalUTXOs = 0;
+        const std::vector<BitcoinPeer*>& bpeers = reinterpret_cast<const std::vector<BitcoinPeer*>&>(peers);
+        for (BitcoinPeer* p: bpeers) {
+            totalUTXOs += p->mempool_.size();
+        }
+        OutputWriter::pushValue("UTXOsPerRound", totalUTXOs);
+    }
+
+    void BitcoinPeer::endOfExperiment(std::vector<Peer*>& peers) {
+        int totalMinedBlocks = 0;
+        int totalTxsMade = 0;
+        const std::vector<BitcoinPeer*>& bpeers = reinterpret_cast<const std::vector<BitcoinPeer*>&>(peers);
+        for (BitcoinPeer* p : bpeers) {
+            totalMinedBlocks += p->blocksMined_;
+            totalTxsMade += p->txsMade_;
+        }
+        OutputWriter::pushValue("totalMinedBlocks", totalMinedBlocks);
+        OutputWriter::pushValue("totalTransactions", totalTxsMade);
     }
 
     void BitcoinPeer::checkInStream() {
@@ -167,11 +191,7 @@ namespace quantas {
             if (msg.contains("type") && msg["type"] == "tx") {
                 // incoming transactions need to be processed
                 // this includes inserting into knownTxs_ and mempool_
-                Tx incomingTx;
-                incomingTx.id = msg["contents"]["txID"];
-                incomingTx.roundSent = msg["contents"]["roundSent"];
-                incomingTx.sender = msg["contents"]["senderID"];
-                incomingTx.receiver = msg["contents"]["receiverID"];
+                Tx incomingTx = buildTxFromMessage(msg);
 
                 // check to see if the incoming transaction already exists
                 auto it = knownTxs_.find(incomingTx.id);
@@ -187,19 +207,43 @@ namespace quantas {
             else if (msg.contains("type") && msg["type"] == "block") {
                 // we need to check to see if the block is first valid
                 // check prevID, make sure that it matches topBlockID_
-                // if not, ignore it
+                // then, will need to verify all transactions are within mempool
+                // if they aren't in mempool, we would need to make sure that it hasn't already been spent
 
+                // TODO: Implement fork logic
+
+                // flag to determine if block is valid and needs to be switched out
+                bool isValidBlock = true;
+
+                if (msg["contents"]["prevID"] == topBlockID_) {
+                    for (const auto& id : msg["contents"]["transactions"]) {
+                        Tx t;
+                        t.id = id.get<int>();
+                        // if tx is not found in mempool, but was already verified (attempted double spend)
+                        // this is an invalid block!!!
+                        if (std::find(mempool_.begin(), mempool_.end(), t) == mempool_.end() && knownTxs_.find(t.id) != knownTxs_.end()) {
+                            isValidBlock = false;
+                        }
+                    }
+
+                    // if valid, we need to first remove all correlating txs from mempool
+                    if (isValidBlock) {
+                        for (const auto& id : msg["contents"]["transactions"]) {
+                            Tx ctx;
+                            ctx.id = id.get<int>();
+                            auto memIt = std::find(mempool_.begin(), mempool_.end(), ctx);
+                            if (memIt != mempool_.end()) {
+                                mempool_.erase(memIt);
+                            }
+                        }
+
+                        // create physical block from message
+                        Bk incomingBlock = buildBlockFromMessage(msg);
+                        knownBlocks_.insert(std::make_pair(incomingBlock.id, incomingBlock));
+                        topBlockID_ = incomingBlock.id;
+                    }
+                }
             }
-            else if (msg.contains("type") && msg["type"] == "reqtx") {
-                // do later
-            }
-            else if (msg.contains("type") && msg["type"] == "cmpblock") {
-                // do later
-            }
-            else if (msg.contains("type") && msg["type"] == "reqblock") {
-                // do later
-            }
-            
         }
     }
 
@@ -225,14 +269,38 @@ namespace quantas {
         result["contents"]["prevID"] = block.prevID;
         result["contents"]["height"] = block.height;
         result["contents"]["roundMined"] = block.roundMined;
+        result["contents"]["coinbaseTransaction"] = buildTxMessage(block.cbTx);
         result["contents"]["numberOfTransactions"] = block.numTx;
-        // log set of transaction ids (int)
-        result["contents"]["transactionIDs"] = json::array();
-        for (auto& t : block.txs) {
-            result["contents"]["transactionIDs"].push_back(t.id);
+        // log set of transactions (int)
+        result["contents"]["transactions"] = json::array();
+        for (const auto& t : block.txs) {
+            result["contents"]["transactions"].push_back(buildTxMessage(t));
         }
         return result;
     }
 
+    BitcoinPeer::Bk BitcoinPeer::buildBlockFromMessage(const json& msg) {
+        Bk result;
+        result.id = msg["contents"]["blockID"];
+        result.prevID = msg["contents"]["prevID"];
+        result.height = msg["contents"]["height"];
+        result.roundMined = msg["contents"]["roundMined"];
+        result.numTx = msg["contents"]["numberOfTransactions"];
+        for (const auto& t : msg["contents"]["transactions"]) {
+            Tx incomingTx = buildTxFromMessage(t);
+            result.txs.insert(incomingTx);
+        }
+        result.cbTx = buildTxFromMessage(msg["contents"]["coinbaseTransaction"]);
+        return result;
+    }
+
+    BitcoinPeer::Tx BitcoinPeer::buildTxFromMessage(const json& msg) {
+        Tx result;
+        result.id = msg["contents"]["txID"];
+        result.roundSent = msg["contents"]["roundSent"];
+        result.sender = msg["contents"]["senderID"];
+        result.receiver = msg["contents"]["receiverID"];
+        return result;
+    }
     
 }
