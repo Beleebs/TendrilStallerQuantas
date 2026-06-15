@@ -10,7 +10,7 @@
         "parameters": {
             "outputFile": "bitcoin1.txt",
             "mineProbability": 0.05,
-            "txProbability": 0.05
+            "txProbability": 0.2
         },
         "distribution": {
             "type": "uniform",
@@ -23,7 +23,7 @@
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,
-        "rounds": 5
+        "rounds": 50
         },
         {
         "id": "bitcoin2",
@@ -44,7 +44,7 @@
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,
-        "rounds": 5
+        "rounds": 50
         }
     ]
 }

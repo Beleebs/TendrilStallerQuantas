@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <set>
 #include <iterator>
+#include <utility>
 
 #include "BitcoinPeer.hpp"
 #include "../Common/Peer.hpp"
@@ -36,7 +37,7 @@ namespace quantas {
 
         // init the genesis block
         Bk genesis;
-        genesis.id = 1;
+        genesis.id = -1;
         genesis.height = 0;
         genesis.prevID = 0;
         genesis.roundMined = 1;
@@ -55,8 +56,8 @@ namespace quantas {
             p->mineProbability_ = parameters.value("mineProbability", mineProbability_);
             p->txProbability_ = parameters.value("txProbability", txProbability_);
 
-            // set the top block ID to the genesis node
-            p->topBlockID_ = 1;
+            // set the top block ID to the genesis node id
+            p->topBlockID_ = genesis.id;
 
             // add genesis to the known blocks and add the coinbase transaction to known txs
             p->knownBlocks_.insert(std::make_pair(genesis.id, genesis));
@@ -64,7 +65,7 @@ namespace quantas {
 
             // next, setup each node with a new first block
             Bk newCurrentBlock;
-            newCurrentBlock.id = p->publicId() * 1000000 + 1;
+            newCurrentBlock.id = p->publicId() * 1000000;
             newCurrentBlock.prevID = p->topBlockID_;
             newCurrentBlock.height = 1;
             p->currentBlock_ = newCurrentBlock;
@@ -83,7 +84,7 @@ namespace quantas {
         std::cout << "adding mempool txs to current block: " << currentBlock_.id << std::endl;
         if (!mempool_.empty()) {
             for (const auto& utx : mempool_) {
-                std::cout << utx.id;
+                std::cout << utx.id << " ";
                 currentBlock_.txs.insert(utx);
             }
             currentBlock_.numTx = currentBlock_.txs.size();
@@ -117,6 +118,8 @@ namespace quantas {
                     mempool_.erase(memIt);
                 }
             }
+            ++blocksMined_;
+            logMinedBlock(currentBlock_);
 
             // 3. create new top block 
             std::cout << "\tcreating new top block" << std::endl;
@@ -140,6 +143,11 @@ namespace quantas {
             newCurrentBlock.numTx = newCurrentBlock.txs.size();
             newCurrentBlock.cbTx = newCBTx;
 
+            // update state again
+            knownTxs_.insert(std::make_pair(newCBTx.id, newCBTx));
+            mempool_.push_back(newCBTx);
+            knownBlocks_.insert(std::make_pair(currentBlock_.id, currentBlock_));
+
             // 5. update currentBlock_
             std::cout << "\tfinishing block mining" << std::endl;
             currentBlock_ = newCurrentBlock;
@@ -157,29 +165,21 @@ namespace quantas {
             // has a constraint of ~1000000 possible transactions per node (can probably be done better)
             newTransaction.id = publicId() * 1000000 + txsMade_;
             newTransaction.roundSent = RoundManager::currentRound();
-            newTransaction.sender = publicId();
+            newTransaction.sender = (int)publicId();
             std::cout << newTransaction.id << std::endl;
-            for (int i = 0; i < neighbors().size(); ++i) {
-                std::cout << i << " ";
-            }
-            std::cout << std::endl;
 
             // find random peer to make transaction to
             std::cout << "\tselecting random neighbor: ";
+            std::set<interfaceId> neighborSet = neighbors();
 
-            std::cout << "ok lets do this" << std::endl;
-
-            if (!neighbors().empty()) {
+            // this is breaking rn
+            if (!neighborSet.empty()) {
                 std::cout << "\tinto the if statement" << std::endl;
                 int numNeighbors = neighbors().size();
                 int index = rand() % numNeighbors;
                 std::cout << "\tfound index: " << index << std::endl;
-                auto it = neighbors().begin();
-                for (int i = 0; i < index; ++i) {
-                    std::cout << "\tbefore dereferencing an iterator" << std::endl;
-                    ++it;
-                    std::cout << "\tafter: " << *it << std::endl;
-                }
+                auto it = neighborSet.begin();
+                std::advance(it, index);
                 std::cout << "\tdecided receiver: ";
                 newTransaction.receiver = *it;
                 std::cout << newTransaction.receiver << std::endl;
@@ -226,6 +226,7 @@ namespace quantas {
             Packet packet = popInStream();
             json msg = packet.getMessage();
 
+            // transaction issue with mempool currently
             if (msg.contains("type") && msg["type"] == "tx") {
                 // incoming transactions need to be processed
                 // this includes inserting into knownTxs_ and mempool_
@@ -233,7 +234,7 @@ namespace quantas {
 
                 // check to see if the incoming transaction already exists
                 auto it = knownTxs_.find(incomingTx.id);
-                if (it != knownTxs_.end()) {
+                if (it == knownTxs_.end()) {
                     // insert into knownTxs and mempool
                     knownTxs_.insert(std::make_pair(incomingTx.id, incomingTx));
                     mempool_.push_back(incomingTx);
@@ -295,8 +296,8 @@ namespace quantas {
         result["type"] = "tx";
         result["contents"]["txID"] = transaction.id;
         result["contents"]["roundSent"] = transaction.roundSent;
-        result["contents"]["senderID"] = transaction.sender;
-        result["contents"]["receiverID"] = transaction.receiver;
+        result["contents"]["ID_sender"] = transaction.sender;
+        result["contents"]["ID_receiver"] = transaction.receiver;
         return result;
     }
 
@@ -336,8 +337,8 @@ namespace quantas {
         Tx result;
         result.id = msg["contents"]["txID"];
         result.roundSent = msg["contents"]["roundSent"];
-        result.sender = msg["contents"]["senderID"];
-        result.receiver = msg["contents"]["receiverID"];
+        result.sender = msg["contents"]["ID_sender"];
+        result.receiver = msg["contents"]["ID_receiver"];
         return result;
     }
     
