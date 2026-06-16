@@ -24,9 +24,9 @@
 
 
 # tendril staller implementation config
-#INPUTFILE := quantas/TendrilPeer/TendrilPeerConfig.json
+INPUTFILE := quantas/TendrilPeer/TendrilPeerConfig.json
 
-INPUTFILE := quantas/ExamplePeer/ExampleInput.json
+# INPUTFILE := quantas/ExamplePeer/ExampleInput.json
 # INPUTFILE := quantas/ExamplePeer/ExampleConcreteInput1.json
 # INPUTFILE := quantas/KademliaPeer/KademliaConcreteInput.json
 # INPUTFILE := quantas/ChordPeer/ChordConcreteInput.json

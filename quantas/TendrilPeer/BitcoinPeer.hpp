@@ -91,6 +91,10 @@ namespace quantas {
         // MESSAGE LOGGING FUNCTIONS
         // could include something that logs the blocks into the output json file
         void logMinedBlock(const Bk&);
+        // logs the current blockchain of a node
+        void logCurrentBlockChain();
+
+        // MESSAGE BUILDING FUNCTIONS
         // builds json message for blocks
         json buildBlockMessage(const Bk&);
         // builds json message for transactions
@@ -98,10 +102,14 @@ namespace quantas {
         // builds a transaction/block from an incoming message
         Tx buildTxFromMessage(const json&);
         Bk buildBlockFromMessage(const json&);
+        // builds entire blockchain from topBlockID_
+        std::string buildBlockChain();
 
         // BLOCKCHAIN SPECIFIC FUNCTIONS/VARIABLES
         // Known Blocks
         std::unordered_map<int, Bk> knownBlocks_;
+        // Orphan Blocks
+
         // Known Transactions
         std::unordered_map<int, Tx> knownTxs_;
         // Mempool for unconfirmed transactions

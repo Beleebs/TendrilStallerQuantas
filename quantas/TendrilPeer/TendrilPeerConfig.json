@@ -15,28 +15,7 @@
         "distribution": {
             "type": "uniform",
             "maxDelay": 3,
-            "maxMsgsRec": 10
-        },
-        "topology": {
-            "type": "complete",
-            "initialPeers": 5,
-            "initialPeerType": "BitcoinPeer"
-        },
-        "tests": 1,
-        "rounds": 50
-        },
-        {
-        "id": "bitcoin2",
-        "threadCount": 1,
-        "parameters": {
-            "outputFile": "bitcoin2.txt",
-            "mineProbability": 0.05,
-            "txProbability": 0.2
-        },
-        "distribution": {
-            "type": "uniform",
-            "maxDelay": 3,
-            "maxMsgsRec": 10
+            "maxMsgsRec": 30
         },
         "topology": {
             "type": "complete",

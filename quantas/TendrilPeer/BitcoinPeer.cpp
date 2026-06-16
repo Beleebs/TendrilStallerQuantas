@@ -39,11 +39,11 @@ namespace quantas {
         Bk genesis;
         genesis.id = -1;
         genesis.height = 0;
-        genesis.prevID = 0;
+        genesis.prevID = -2;
         genesis.roundMined = 1;
         genesis.numTx = 1;
         Tx genesisTx;
-        genesisTx.id = 1;
+        genesisTx.id = -1;
         genesisTx.roundSent = 1;
         genesis.txs.insert(genesisTx);
         genesis.cbTx = genesisTx;
@@ -68,9 +68,24 @@ namespace quantas {
             newCurrentBlock.id = p->publicId() * 1000000;
             newCurrentBlock.prevID = p->topBlockID_;
             newCurrentBlock.height = 1;
+            // create new coinbase transaction
+            Tx newCBTx;
+            newCBTx.id = p->publicId() * 1000000 + p->txsMade_;
+            newCBTx.sender = -1;
+            newCBTx.receiver = p->publicId();
+            newCBTx.roundSent = RoundManager::currentRound();
+            newCurrentBlock.cbTx = newCBTx;
+            newCurrentBlock.txs.insert(newCBTx);
+            newCurrentBlock.numTx = newCurrentBlock.txs.size();
+
             p->currentBlock_ = newCurrentBlock;
+            // p->knownBlocks_.insert(std::make_pair(newCurrentBlock.id, newCurrentBlock));
+            p->knownTxs_.insert(std::make_pair(newCBTx.id, newCBTx));
+            ++p->txsMade_;
+            p->mempool_.push_back(newCBTx);
         }
         std::cout << "finished initParameters" << std::endl << std::endl;
+        std::cout << std::endl << "(" << RoundManager::currentRound() + 1 << "/" << RoundManager::lastRound() << ")" << std::endl;
     }
 
     void BitcoinPeer::performComputation() {
@@ -81,7 +96,7 @@ namespace quantas {
 
         // goes through unconfirmed transactions, adds them to the current top block
         // updates num of transactions
-        std::cout << "adding mempool txs to current block: " << currentBlock_.id << std::endl;
+        std::cout << "adding mempool txs to current block" << std::endl << "\t";
         if (!mempool_.empty()) {
             for (const auto& utx : mempool_) {
                 std::cout << utx.id << " ";
@@ -104,7 +119,7 @@ namespace quantas {
 
             // 1. block successfully mined, broadcast
             // firstly, set the round the block was mined
-            std::cout << "block mined!!" << std::endl;
+            std::cout << "\tblock mined!! new top height: " << currentBlock_.height << std::endl;
             currentBlock_.roundMined = RoundManager::currentRound();
             broadcast(buildBlockMessage(currentBlock_));
 
@@ -119,6 +134,8 @@ namespace quantas {
                 }
             }
             ++blocksMined_;
+            knownBlocks_.insert(std::make_pair(currentBlock_.id, currentBlock_));
+            std::cout << "\tinserted block id: " << currentBlock_.id << " into knownBlocks_." << std::endl;
             logMinedBlock(currentBlock_);
 
             // 3. create new top block 
@@ -127,7 +144,7 @@ namespace quantas {
             // blockID similar to 
             newCurrentBlock.id = publicId() * 1000000 + blocksMined_;
             newCurrentBlock.height = currentBlock_.height + 1;
-            newCurrentBlock.prevID = currentBlock_.height;
+            newCurrentBlock.prevID = currentBlock_.id;
 
             // 4. create coinbase transaction for mining the block and insert
             std::cout << "\tcreating coinbase transaction" << std::endl;
@@ -135,8 +152,9 @@ namespace quantas {
             newCBTx.id = publicId() * 1000000 + txsMade_;                               // change this
             newCBTx.roundSent = RoundManager::currentRound();
             newCBTx.receiver = publicId();
+            ++txsMade_;
             // broadcast new transaction
-            broadcast(buildTxMessage(newCBTx));
+            // broadcast(buildTxMessage(newCBTx));
 
             // add coinbase transaction
             newCurrentBlock.txs.insert(newCBTx);
@@ -146,7 +164,7 @@ namespace quantas {
             // update state again
             knownTxs_.insert(std::make_pair(newCBTx.id, newCBTx));
             mempool_.push_back(newCBTx);
-            knownBlocks_.insert(std::make_pair(currentBlock_.id, currentBlock_));
+
 
             // 5. update currentBlock_
             std::cout << "\tfinishing block mining" << std::endl;
@@ -169,15 +187,10 @@ namespace quantas {
             std::cout << newTransaction.id << std::endl;
 
             // find random peer to make transaction to
-            std::cout << "\tselecting random neighbor: ";
             std::set<interfaceId> neighborSet = neighbors();
-
-            // this is breaking rn
             if (!neighborSet.empty()) {
-                std::cout << "\tinto the if statement" << std::endl;
                 int numNeighbors = neighbors().size();
                 int index = rand() % numNeighbors;
-                std::cout << "\tfound index: " << index << std::endl;
                 auto it = neighborSet.begin();
                 std::advance(it, index);
                 std::cout << "\tdecided receiver: ";
@@ -204,8 +217,12 @@ namespace quantas {
         const std::vector<BitcoinPeer*>& bpeers = reinterpret_cast<const std::vector<BitcoinPeer*>&>(peers);
         for (BitcoinPeer* p: bpeers) {
             totalUTXOs += p->mempool_.size();
+            std::cout << p->publicId() << "'s local blockchain: " << p->buildBlockChain() << std::endl;
         }
+        
+
         OutputWriter::pushValue("UTXOsPerRound", totalUTXOs);
+        std::cout << std::endl << "(" << RoundManager::currentRound() + 1 << "/" << RoundManager::lastRound() << ")" << std::endl;
     }
 
     void BitcoinPeer::endOfExperiment(std::vector<Peer*>& peers) {
@@ -218,6 +235,11 @@ namespace quantas {
         }
         OutputWriter::pushValue("totalMinedBlocks", totalMinedBlocks);
         OutputWriter::pushValue("totalTransactions", totalTxsMade);
+        std::cout << "END OF EXPERIMENT. PRINTING LOCAL BLOCKCHAINS: " << std::endl;
+        for (BitcoinPeer* p : bpeers) {
+            std::cout << "\t" << p->publicId() << ": " << p->buildBlockChain() << std::endl;
+        }
+        std::cout << std::endl;
     }
 
     void BitcoinPeer::checkInStream() {
@@ -235,6 +257,7 @@ namespace quantas {
                 // check to see if the incoming transaction already exists
                 auto it = knownTxs_.find(incomingTx.id);
                 if (it == knownTxs_.end()) {
+                    std::cout << "\tfound incoming transaction, ID: " << incomingTx.id << std::endl;
                     // insert into knownTxs and mempool
                     knownTxs_.insert(std::make_pair(incomingTx.id, incomingTx));
                     mempool_.push_back(incomingTx);
@@ -250,36 +273,116 @@ namespace quantas {
                 // if they aren't in mempool, we would need to make sure that it hasn't already been spent
 
                 // TODO: Implement fork logic
+                // forks are determined by height.
 
                 // flag to determine if block is valid and needs to be switched out
                 bool isValidBlock = true;
+                Bk incomingBlock = buildBlockFromMessage(msg);
+                std::cout << "\tfound incoming block, ID: " << incomingBlock.id << ", height: " << incomingBlock.height << std::endl;
+                if (knownBlocks_.find(incomingBlock.id) == knownBlocks_.end()) {
+                    knownBlocks_.insert(std::make_pair(incomingBlock.id, incomingBlock));
+                    std::cout << "\t\tnot found in knownBlocks_, continue" << std::endl;
 
-                if (msg["contents"]["prevID"] == topBlockID_) {
-                    for (const auto& id : msg["contents"]["transactions"]) {
-                        Tx t;
-                        t.id = id.get<int>();
-                        // if tx is not found in mempool, but was already verified (attempted double spend)
-                        // this is an invalid block!!!
-                        if (std::find(mempool_.begin(), mempool_.end(), t) == mempool_.end() && knownTxs_.find(t.id) != knownTxs_.end()) {
+                    // greater height, we might need to restructure the local blockchain
+                    // due to consensus, if the incoming block's height is higher, then we can switch to that branch.
+                    auto topIt = knownBlocks_.find(topBlockID_);
+                    // if (incomingBlock.height > currentBlock_.height) {
+                    if (incomingBlock.height > knownBlocks_[topBlockID_].height) {
+                        // std::cout << "\t\tincomingBlock's height: " << incomingBlock.height << " > currentBlock_'s height: " << currentBlock_.height << ". Switching chain..." << std::endl;
+                        std::cout << "\t\tincomingBlock's height: " << incomingBlock.height << " > topBlockID_'s height: " << topIt->second.height << ". Switching chain..." << std::endl;
+                        // trace the incoming block's chain for a common branch point
+                        int ibPrevID = incomingBlock.prevID;
+                        int prevID = currentBlock_.prevID;
+                        int commonID = -2;
+
+                        auto ibit = knownBlocks_.find(ibPrevID);
+                        auto it = knownBlocks_.find(prevID);
+
+                        // align the two iterators to the same height
+                        if (it != knownBlocks_.end() && ibit != knownBlocks_.end()) {
+                            while (it->second.height > ibit->second.height) {
+                                it = knownBlocks_.find(it->second.prevID);
+                            }
+
+                            while (ibit->second.height > it->second.height) {
+                                ibit = knownBlocks_.find(ibit->second.prevID);
+                            }
+
+                            while (it != ibit) {
+                                it = knownBlocks_.find(it->second.prevID);
+                                ibit = knownBlocks_.find(ibit->second.prevID);
+                                if (it == knownBlocks_.end() || ibit == knownBlocks_.end()) {
+                                    break;
+                                }
+                                else {
+                                    std::cout << "\t\t\t\theight: " << it->second.height << ", it id: " << it->second.id << ", ibit id: " << ibit->second.id << std::endl;
+                                }
+                            }
+                        }
+                        
+                        if (it != knownBlocks_.end() && it == ibit) {
+                            std::cout << "\t\tfound common branch: " << it->second.id << std::endl;
+                            commonID = it->second.id;
+                        }
+                        else {
                             isValidBlock = false;
+                            std::cout << "\t\tcould not find common branch off of fork." << std::endl;
+                        }
+                    }
+                    // incomingBlock's height <= currentBlock's height
+                    else {
+                        std::cout << "\t\tincomingBlock's height: " << incomingBlock.height << " <= topBlockID_'s height: " << topIt->second.height << ". Keeping Chain." << std::endl;
+                        isValidBlock = false;
+                    }
+
+                    // check for incoming block txs, see if they are valid
+                    for (const auto &t : incomingBlock.txs) {
+                        std::cout << "\t\t\tchecking for transaction: " << t.id << std::endl;
+                        // if tx is not found in mempool, but was already verified (attempted double spend), this is an invalid block!!!
+                        auto memIt = std::find(mempool_.begin(), mempool_.end(), t);
+                        if (memIt == mempool_.end() && knownTxs_.find(t.id) != knownTxs_.end()) {
+                            isValidBlock = false;
+                            std::cout << "\t\t\t! invalid tx found: " << t.id<< std::endl;
+                            break;
                         }
                     }
 
-                    // if valid, we need to first remove all correlating txs from mempool
                     if (isValidBlock) {
-                        for (const auto& id : msg["contents"]["transactions"]) {
-                            Tx ctx;
-                            ctx.id = id.get<int>();
-                            auto memIt = std::find(mempool_.begin(), mempool_.end(), ctx);
+                        // set the new topBlockID to the incomingblock
+                        topBlockID_ = incomingBlock.id;
+
+                        // remove the incoming block transactions from the mempool
+                        for (const auto &t : incomingBlock.txs) {
+                            auto memIt = std::find(mempool_.begin(), mempool_.end(), t);
                             if (memIt != mempool_.end()) {
                                 mempool_.erase(memIt);
                             }
                         }
 
-                        // create physical block from message
-                        Bk incomingBlock = buildBlockFromMessage(msg);
-                        knownBlocks_.insert(std::make_pair(incomingBlock.id, incomingBlock));
-                        topBlockID_ = incomingBlock.id;
+                        // next, create new current block to go off of
+                        Bk newCurrentBlock;
+                        newCurrentBlock.id = currentBlock_.id;
+                        newCurrentBlock.prevID = incomingBlock.id;
+                        newCurrentBlock.height = incomingBlock.height + 1;
+                        Tx newCBTx;
+                        newCBTx.id = publicId() * 1000000 + txsMade_;
+                        newCBTx.sender = -1;
+                        newCBTx.receiver = publicId();
+                        newCBTx.roundSent = RoundManager::currentRound();
+                        newCurrentBlock.cbTx = newCBTx;
+                        newCurrentBlock.txs.insert(newCBTx);
+                        newCurrentBlock.numTx = newCurrentBlock.txs.size();
+
+                        // update node state with new current block
+                        currentBlock_ = newCurrentBlock;
+                        // knownBlocks_.insert(std::make_pair(newCurrentBlock.id, newCurrentBlock));
+                        knownTxs_.insert(std::make_pair(newCBTx.id, newCBTx));
+                        ++txsMade_;
+                        mempool_.push_back(newCBTx);
+                        std::cout << "\tcurrentBlock_ = " << currentBlock_.id << ", built from topBlockID_: " << topBlockID_ << std::endl;
+
+                        // broadcast
+                        broadcast(buildBlockMessage(incomingBlock));
                     }
                 }
             }
@@ -340,6 +443,26 @@ namespace quantas {
         result.sender = msg["contents"]["ID_sender"];
         result.receiver = msg["contents"]["ID_receiver"];
         return result;
+    }
+
+    std::string BitcoinPeer::buildBlockChain() {
+        std::string bcResult;
+        int currentID = topBlockID_;
+        int nextID;
+        bcResult = "tip";
+        auto foundBlock = knownBlocks_.find(topBlockID_);
+        while (foundBlock != knownBlocks_.end()) {
+            currentID = foundBlock->second.id;
+            bcResult = std::to_string(currentID) + ", " + bcResult;
+            nextID = foundBlock->second.prevID;
+            if (currentID == nextID) {
+                break;
+            }
+            else {
+                foundBlock = knownBlocks_.find(nextID);
+            }
+        }
+        return bcResult;
     }
     
 }
