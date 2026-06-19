@@ -23,7 +23,7 @@
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,
-        "rounds": 50
+        "rounds": 500
         }
     ]
 }

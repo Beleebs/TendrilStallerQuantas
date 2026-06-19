@@ -63,26 +63,6 @@
         },
         "tests": 1,
         "rounds": 1000
-        },
-        {
-        "id": "rounds10000",
-        "threadCount": 1,
-        "parameters": {
-            "mineProbability": 0.02,
-            "txProbability": 0.05
-        },
-        "distribution": {
-            "type": "uniform",
-            "maxDelay": 3,
-            "maxMsgsRec": 50
-        },
-        "topology": {
-            "type": "complete",
-            "initialPeers": 10,
-            "initialPeerType": "BitcoinPeer"
-        },
-        "tests": 1,
-        "rounds": 10000
         }
     ]
 }

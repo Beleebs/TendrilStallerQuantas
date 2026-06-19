@@ -82,7 +82,6 @@ namespace quantas {
             // p->knownBlocks_.insert(std::make_pair(newCurrentBlock.id, newCurrentBlock));
             p->knownTxs_.insert(std::make_pair(newCBTx.id, newCBTx));
             ++p->txsMade_;
-            p->mempool_.insert(newCBTx);
         }
         // std::cout << "finished initParameters" << std::endl << std::endl;
         // std::cout << std::endl << "(" << RoundManager::currentRound() + 1 << "/" << RoundManager::lastRound() << ")" << std::endl;
@@ -97,6 +96,10 @@ namespace quantas {
         // goes through unconfirmed transactions, adds them to the current top block
         // updates num of transactions
         // std::cout << "adding mempool txs to current block" << std::endl << "\t";
+
+        // completely update currentBlock's txs by clearing them and inserting mempool again
+        currentBlock_.txs.clear();
+        currentBlock_.txs.insert(currentBlock_.cbTx);
         if (!mempool_.empty()) {
             for (const auto& utx : mempool_) {
                 // std::cout << utx.id << " ";
@@ -105,6 +108,8 @@ namespace quantas {
             currentBlock_.numTx = currentBlock_.txs.size();
             // std::cout << std::endl;
         }
+
+        std::cout << "Node " << publicId() << " mempool=" << mempool_.size() << " candidate=" << currentBlock_.txs.size() << std::endl;
 
         // 2. Try mining current block
         // std::cout << "trying to mine block: " << currentBlock_.id << std::endl;
@@ -124,6 +129,15 @@ namespace quantas {
             int confirmedTxs = recordConfirmedTransactionsFromBlock(currentBlock_);
             OutputWriter::pushValue("txs_confirmed_in_mined_block", confirmedTxs);
             OutputWriter::pushValue("blocks_mined_per_round", 1);
+
+            std::cout << "\n=== BLOCK MINED ===\n";
+            std::cout << "Node " << publicId()
+                    << " mined block " << currentBlock_.id
+                    << " containing:\n";
+
+            for (const auto& tx : currentBlock_.txs) {
+                std::cout << "    tx " << tx.id << '\n';
+            }
             broadcast(buildBlockMessage(currentBlock_));
 
             // 2. update state
@@ -155,6 +169,7 @@ namespace quantas {
             newCBTx.id = publicId() * 1000000 + txsMade_;                               // change this
             newCBTx.roundSent = RoundManager::currentRound();
             newCBTx.receiver = publicId();
+            newCBTx.sender = -1;
             ++txsMade_;
             // broadcast new transaction
             // broadcast(buildTxMessage(newCBTx));
@@ -166,7 +181,6 @@ namespace quantas {
 
             // update state again
             knownTxs_.insert(std::make_pair(newCBTx.id, newCBTx));
-            mempool_.insert(newCBTx);
 
 
             // 5. update currentBlock_
@@ -252,7 +266,7 @@ namespace quantas {
         }
         OutputWriter::pushValue("totalMinedBlocks", totalMinedBlocks);
         OutputWriter::pushValue("totalTransactions", totalTxsMade);
-        // std::cout << "END OF EXPERIMENT. PRINTING LOCAL BLOCKCHAINS: " << std::endl;
+        std::cout << "END OF EXPERIMENT. " << std::endl;
     }
 
     void BitcoinPeer::checkInStream() {
@@ -278,7 +292,7 @@ namespace quantas {
                     mempool_.insert(incomingTx);
 
                     // broadcast to all neighbors
-                    broadcast(buildTxMessage(incomingTx));
+                    broadcastBut(buildTxMessage(incomingTx), packet.sourceId());
                 }
                 else {
                     // std::cout << "Yes." << std::endl;
@@ -290,6 +304,13 @@ namespace quantas {
                 // std::cout << "\tfound incoming block, ID: " << incomingBlock.id << ", height: " << incomingBlock.height << std::endl;
 
                 if (knownBlocks_.find(incomingBlock.id) == knownBlocks_.end()) {
+                    std::cout << "Node "
+                        << publicId()
+                        << " received block "
+                        << incomingBlock.id
+                        << " with "
+                        << incomingBlock.txs.size()
+                        << " txs\n";
                     knownBlocks_.insert(std::make_pair(incomingBlock.id, incomingBlock));
                     // std::cout << "\t\tnot found in knownBlocks_, continue" << std::endl;
 
@@ -316,13 +337,14 @@ namespace quantas {
 
                     // std::cout << "\t\told branch length: " << oldBranch.size() << ", new branch length: " << newBranch.size() << std::endl;
 
-                    reinsertAbandonedTransactions(oldBranch);
                     isValidBlock = validateForkBranch(newBranch);
 
                     if (!isValidBlock) {
                         // std::cout << "\t\tnew fork branch validation failed." << std::endl;
                         continue;
                     }
+
+                    reinsertAbandonedTransactions(oldBranch);
 
                     topBlockID_ = incomingBlock.id;
                     int confirmedTxs = recordConfirmedTransactionsFromBlock(incomingBlock);
@@ -348,10 +370,10 @@ namespace quantas {
                     currentBlock_ = newCurrentBlock;
                     knownTxs_.insert(std::make_pair(newCBTx.id, newCBTx));
                     ++txsMade_;
-                    mempool_.insert(newCBTx);
+                    
                     // std::cout << "\t\tcurrentBlock_ = " << currentBlock_.id << ", built from topBlockID_: " << topBlockID_ << std::endl;
 
-                    broadcast(buildBlockMessage(incomingBlock));
+                    broadcastBut(buildBlockMessage(incomingBlock), packet.sourceId());
                 }
             }
         }
@@ -504,19 +526,8 @@ namespace quantas {
 
     bool BitcoinPeer::validateForkBranch(const std::vector<int>& branchIds) {
         for (int blockId : branchIds) {
-            auto blockIt = knownBlocks_.find(blockId);
-            if (blockIt == knownBlocks_.end()) {
-                // std::cout << "\t\t\tvalidation failed: missing block " << blockId << std::endl;
+            if (knownBlocks_.find(blockId) == knownBlocks_.end()) {
                 return false;
-            }
-            const Bk& block = blockIt->second;
-            for (const auto& t : block.txs) {
-                // std::cout << "\t\t\tvalidating tx " << t.id << " in block " << block.id << std::endl;
-                auto memIt = mempool_.find(t);
-                if (memIt == mempool_.end() && knownTxs_.find(t.id) != knownTxs_.end()) {
-                    // std::cout << "\t\t\tinvalid tx in branch: " << t.id << std::endl;
-                    return false;
-                }
             }
         }
         return true;
@@ -548,12 +559,18 @@ namespace quantas {
             }
             const Bk& block = blockIt->second;
             for (const auto& t : block.txs) {
+
                 auto memIt = mempool_.find(t);
+
                 if (memIt != mempool_.end()) {
+                    // debug
+                    std::cout << "Node " << publicId() << " removed tx " << t.id << '\n';
+
                     mempool_.erase(memIt);
                 }
-                if (knownTxs_.find(t.id) == knownTxs_.end()) {
-                    knownTxs_.insert(std::make_pair(t.id, t));
+                else {
+                    // debug
+                    std::cout << "Node " << publicId() << " DID NOT HAVE tx " << t.id << '\n';
                 }
             }
         }
