@@ -24,7 +24,11 @@
 
 
 # tendril staller implementation config
-INPUTFILE := quantas/TendrilPeer/TendrilPeerConfig.json
+# INPUTFILE := quantas/TendrilPeer/TendrilPeerConfig.json
+# INPUTFILE := quantas/TendrilPeer/TPC_delay.json
+INPUTFILE := quantas/TendrilPeer/TPC_throughput.json
+# INPUTFILE := quantas/TendrilPeer/TPC_network_size.json
+
 
 # INPUTFILE := quantas/ExamplePeer/ExampleInput.json
 # INPUTFILE := quantas/ExamplePeer/ExampleConcreteInput1.json

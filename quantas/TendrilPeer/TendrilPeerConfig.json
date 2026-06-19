@@ -9,7 +9,7 @@
         "threadCount": 1,
         "parameters": {
             "outputFile": "bitcoin1.txt",
-            "mineProbability": 0.05,
+            "mineProbability": 0.02,
             "txProbability": 0.2
         },
         "distribution": {

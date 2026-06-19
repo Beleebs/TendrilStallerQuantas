@@ -1,0 +1,88 @@
+{
+    "algorithms": [
+        "TendrilPeer/BitcoinPeer.cpp"
+    ],
+    "logging_level": "trace",
+    "experiments": [
+        {
+        "id": "delay1",
+        "threadCount": 1,
+        "parameters": {
+            "mineProbability": 0.02,
+            "txProbability": 0.2
+        },
+        "distribution": {
+            "type": "uniform",
+            "maxDelay": 1,
+            "maxMsgsRec": 30
+        },
+        "topology": {
+            "type": "complete",
+            "initialPeers": 10,
+            "initialPeerType": "BitcoinPeer"
+        },
+        "tests": 1,
+        "rounds": 50
+        },
+        {
+        "id": "delay3",
+        "threadCount": 1,
+        "parameters": {
+            "mineProbability": 0.02,
+            "txProbability": 0.2
+        },
+        "distribution": {
+            "type": "uniform",
+            "maxDelay": 3,
+            "maxMsgsRec": 30
+        },
+        "topology": {
+            "type": "complete",
+            "initialPeers": 10,
+            "initialPeerType": "BitcoinPeer"
+        },
+        "tests": 1,
+        "rounds": 50
+        },
+        {
+        "id": "delay5",
+        "threadCount": 1,
+        "parameters": {
+            "mineProbability": 0.02,
+            "txProbability": 0.2
+        },
+        "distribution": {
+            "type": "uniform",
+            "maxDelay": 5,
+            "maxMsgsRec": 30
+        },
+        "topology": {
+            "type": "complete",
+            "initialPeers": 10,
+            "initialPeerType": "BitcoinPeer"
+        },
+        "tests": 1,
+        "rounds": 50
+        },
+        {
+        "id": "delay10",
+        "threadCount": 1,
+        "parameters": {
+            "mineProbability": 0.02,
+            "txProbability": 0.2
+        },
+        "distribution": {
+            "type": "uniform",
+            "maxDelay": 10,
+            "maxMsgsRec": 30
+        },
+        "topology": {
+            "type": "complete",
+            "initialPeers": 10,
+            "initialPeerType": "BitcoinPeer"
+        },
+        "tests": 1,
+        "rounds": 50
+        }
+    ]
+}

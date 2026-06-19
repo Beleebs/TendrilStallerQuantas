@@ -35,11 +35,22 @@ namespace quantas {
             // comparison overloading
             // less than
             bool operator<(const Tx& rhs) const {
-                return roundSent < rhs.roundSent;
+                int idDenomination = id / 1000000;
+                int rhsDenomination = rhs.id / 1000000;
+                if (idDenomination == rhsDenomination) {
+                    return id < rhs.id;
+                }
+                else {
+                    return (id % 1000000) < (rhs.id % 1000000);
+                }
             }
             // equals
             bool operator==(const Tx& rhs) const {
                 return id == rhs.id;
+            }
+
+            bool operator!=(const Tx& rhs) const {
+                return id != rhs.id;
             }
 
             // Transaction ID
@@ -104,6 +115,19 @@ namespace quantas {
         Bk buildBlockFromMessage(const json&);
         // builds entire blockchain from topBlockID_
         std::string buildBlockChain();
+        // builds blockchain logging message
+        json buildBlockChainMessage();
+        // builds message for all known blocks
+        json buildKnownBlocksMessage();
+
+        // fork handling helpers
+        int findCommonAncestor(int newTipId);
+        std::vector<int> buildChainPathToAncestor(int fromBlockId, int ancestorId);
+        bool validateForkBranch(const std::vector<int>& branchIds);
+        void reinsertAbandonedTransactions(const std::vector<int>& abandonedBranchIds);
+        void removeConfirmedTransactionsFromMempool(const std::vector<int>& branchIds);
+        int recordConfirmedTransactionsFromBlock(const Bk& block);
+        int countUserTransactionsInBlock(const Bk& block) const;
 
         // BLOCKCHAIN SPECIFIC FUNCTIONS/VARIABLES
         // Known Blocks
@@ -113,7 +137,7 @@ namespace quantas {
         // Known Transactions
         std::unordered_map<int, Tx> knownTxs_;
         // Mempool for unconfirmed transactions
-        std::deque<Tx> mempool_;
+        std::set<Tx> mempool_;
         // contains the id of the most recent mined block
         int topBlockID_ = -1;
         // block currently being mined
