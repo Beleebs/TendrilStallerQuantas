@@ -29,6 +29,7 @@ namespace quantas {
     BitcoinPeer::BitcoinPeer(const BitcoinPeer& rhs) : Peer(rhs) {}
 
     void BitcoinPeer::initParameters(const std::vector<Peer*>& peers, json parameters) {
+        std::vector<BitcoinPeer*> bpeers = reinterpret_cast<const std::vector<BitcoinPeer*>&>(peers);
         // mining probability
         // trnsxn probability
         
@@ -42,22 +43,100 @@ namespace quantas {
         attemptMine();
 
         // attempt to introduce a new transaction
-        attemptTx();
+        attemptTxn();
     }
 
     void BitcoinPeer::endOfRound(std::vector<Peer*>& peers) {
+        std::vector<BitcoinPeer*> bpeers = reinterpret_cast<std::vector<BitcoinPeer*>&>(peers);
         Logger::log(LogLevel::Debug, "endOfRound()", "End of Round " + std::to_string(RoundManager::currentRound()) + ".");
         // count transactions made
-
-        Logger::log(LogLevel::Debug, "endOfRound()", "\t\tTransactions made: ");
+        int txsMade = 0;
+        Logger::log(LogLevel::Debug, "endOfRound()", "\t\tTransactions made: " + std::to_string(txsMade));
 
         // count messages sent
+        int msgsSent = 0;
+        Logger::log(LogLevel::Debug, "endOfRound()", "\t\tMessages sent: " + std::to_string(msgsSent));
 
         // count blocks mined
     }
 
     void BitcoinPeer::endOfExperiment(std::vector<Peer*>& peers) {
-        
+        std::vector<BitcoinPeer*> bpeers = reinterpret_cast<std::vector<BitcoinPeer*>&>(peers);
+
+    }
+
+    Block BitcoinPeer::createNewBlock() {
+        Block b;
+        b.id = blocksMined_;
+        b.prevId = tip_.id;
+        b.roundMined = -1;
+        b.miner = publicId();
+        // insert the new coinbase transaction
+        b.txns.insert(createNewTransaction(-1, publicId()));
+        ++blocksMined_;
+        return b;
+    }
+
+    Transaction BitcoinPeer::createNewTransaction(const interfaceId& sourceId, const interfaceId& receiverId) {
+        Transaction t;
+        t.id = txnsMade_;
+        t.roundCreated = RoundManager::currentRound();
+        t.source = sourceId;
+        t.receiver = receiverId;
+        ++txnsMade_;
+        return t;
+    }
+
+    void BitcoinPeer::attemptMine() {
+        int random = rand() % 100 + 1;
+        if (random >= 100 - (100 * mineProbability_)) {
+            // block has been mined
+            // build header message
+        }
+    }
+
+    void BitcoinPeer::attemptTxn() {
+        int random = rand() % 100 + 1;
+        // transaction probability is hit
+        if (random >= 100 - (100 * txnProbability_)) {
+            Transaction newTx;
+            std::set<interfaceId> neighborSet = neighbors();
+            if (!neighborSet.empty()) {
+                int index = rand() % neighbors().size();
+                auto it = neighborSet.begin();
+                std::advance(it, index);
+                newTx = createNewTransaction(publicId(), *it);
+            }
+            else {
+                newTx = createNewTransaction(publicId(), -1);
+            }
+            json newTxMsg = buildTxnMsg(newTx);
+            broadcast(newTxMsg);
+        }
+    }
+
+    Block BitcoinPeer::hasBlock(const Block& b) const {
+        auto it = knownBlocks_.find(b);
+        if (it != knownBlocks_.end()) {
+            return *it;
+        }
+        else {
+            Block emptyBlock;
+            emptyBlock.id = -2;
+            return emptyBlock;
+        }
+    }
+
+    Transaction BitcoinPeer::hasTxn(const Transaction& t) const {
+        auto it = mempool_.find(t);
+        if (it != mempool_.end()) {
+            return *it;
+        }
+        else {
+            Transaction emptyTxn;
+            emptyTxn.id = -2;
+            return emptyTxn;
+        }
     }
 
     void BitcoinPeer::checkInStream() {
@@ -113,7 +192,7 @@ namespace quantas {
         msg["content"]["prev_id"] = b.prevId;
         msg["content"]["round_mined"] = b.roundMined;
         msg["content"]["miner_id"] = b.miner;
-        for (const auto& t : b.txs) {
+        for (const auto& t : b.txns) {
             msg["content"]["tx_ids"] += t.id;
         }
         return msg;
@@ -132,7 +211,7 @@ namespace quantas {
         json msg;
         msg["type"] = MessageType::BLOCK_TXN;
         msg["content"]["block_id"] = b.id;
-        for (const auto& t : b.txs) {
+        for (const auto& t : b.txns) {
             msg["content"]["txs"] += buildTxnMsg(t);
         }
         return msg;
@@ -149,57 +228,16 @@ namespace quantas {
         return msg;
     }
 
-    Block BitcoinPeer::createNewBlock() {
-        Block b;
-        b.id = blocksMined_;
-        b.prevId = tipId_;
-        b.roundMined = -1;
-        b.miner = publicId();
-        // insert the new coinbase transaction
-        b.txs.insert(createNewTransaction(-1, publicId()));
-
-        ++blocksMined_;
-        return b;
+    Block BitcoinPeer::buildBlockFromMsg(const json& msg) const {
+        Block result;
+        return result;
     }
 
-    Transaction BitcoinPeer::createNewTransaction(const interfaceId& sourceId, const interfaceId& receiverId) {
-        Transaction t;
-        t.id = txsMade_;
-        t.roundCreated = RoundManager::currentRound();
-        t.source = sourceId;
-        t.receiver = receiverId;
-        ++txsMade_;
-        return t;
+    Transaction BitcoinPeer::buildTxnFromMsg(const json& msg) const {
+        Transaction result;
+        return result;
     }
 
     
-
-    void BitcoinPeer::attemptMine() {
-        int random = rand() % 100 + 1;
-        if (random >= 100 - (100 * mineProbability_)) {
-            // block has been mined
-            // build header message
-        }
-    }
-
-    void BitcoinPeer::attemptTx() {
-        int random = rand() % 100 + 1;
-        // transaction probability is hit
-        if (random >= 100 - (100 * txProbability_)) {
-            Transaction newTx;
-            std::set<interfaceId> neighborSet = neighbors();
-            if (!neighborSet.empty()) {
-                int index = rand() % neighbors().size();
-                auto it = neighborSet.begin();
-                std::advance(it, index);
-                newTx = createNewTransaction(publicId(), *it);
-            }
-            else {
-                newTx = createNewTransaction(publicId(), -1);
-            }
-            json newTxMsg = buildTxnMsg(newTx);
-            broadcast(newTxMsg);
-        }
-    }
 
 }

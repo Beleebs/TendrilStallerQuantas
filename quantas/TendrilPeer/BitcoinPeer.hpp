@@ -61,7 +61,7 @@ namespace quantas {
         int roundMined = -1;
         interfaceId miner;
 
-        std::set<Transaction> txs;
+        std::set<Transaction> txns;
     };
 
     class BitcoinPeer : public Peer {
@@ -81,24 +81,28 @@ namespace quantas {
         // miner blockchain state variables
         std::set<Block> knownBlocks_;
         std::set<Transaction> mempool_;
-        int tipId_;
+        Block tip_;
         Block candidate_;
+        bool isWaiting_ = false;        // locks instream if waiting for CMP_BLOCK or BLOCK_TXN
 
-        // block/tx creation variables
+        // block/txn creation variables
         double mineProbability_ = 0.01;
-        double txProbability_ = 0.2;
-        int txsMade_ = 0;
+        double txnProbability_ = 0.2;
+        int txnsMade_ = 0;
         int blocksMined_ = 0;
 
-        // block/tx creation functions
+        // block chain helper functions
+        // something later
+
+        // block/txn creation functions
         Block createNewBlock();
         Transaction createNewTransaction(const interfaceId& sourceId, const interfaceId& receiverId);
         void attemptMine();             // attempt to mine current candidate
-        void attemptTx();               // attempt to create new transaction
+        void attemptTxn();              // attempt to create new transaction
 
-        // block/tx helper functions
+        // block/txn helper functions
         Block hasBlock(const Block&) const;
-        Transaction hasTx(const Transaction&) const;
+        Transaction hasTxn(const Transaction&) const;
 
         // msg sending/receiving
         void checkInStream();
@@ -109,7 +113,7 @@ namespace quantas {
         json buildBlockTxnMsg(const Block& b) const;
         json buildTxnMsg(const Transaction& t) const;
         Block buildBlockFromMsg(const json& msg) const;
-        Block buildTxnFromMsg(const json& msg) const;
+        Transaction buildTxnFromMsg(const json& msg) const;
         int msgsSentThisRound_ = 0;
 
         // network variables
