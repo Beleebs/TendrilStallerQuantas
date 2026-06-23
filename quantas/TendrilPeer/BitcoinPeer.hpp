@@ -16,6 +16,54 @@
 #include "../Common/Packet.hpp"
 
 namespace quantas {
+
+    enum class MessageType {
+        HEADER,
+        GET_DATA,
+        CMP_BLOCK,
+        GET_BLOCK_TXN,
+        BLOCK_TXN,
+        TXN
+    };
+
+    struct Transaction {
+        bool operator<(const Transaction& rhs) const {
+            if (source == rhs.source) {
+                return id < rhs.id;
+            }
+            return source < rhs.source;
+        }
+
+        bool operator==(const Transaction& rhs) const {
+            return id == rhs.id && source == rhs.source;
+        }
+
+        int id = -1;
+        int roundCreated = -1;
+        interfaceId source;
+        interfaceId receiver;
+    };
+
+    struct Block {
+        bool operator<(const Block& rhs) const {
+            if (miner == rhs.miner) {
+                return id < rhs.id;
+            }
+            return miner < rhs.miner;
+        }
+
+        bool operator==(const Block& rhs) const {
+            return id == rhs.id && miner == rhs.miner;
+        }
+
+        int id = -1;
+        int prevId = -1;
+        int roundMined = -1;
+        interfaceId miner;
+
+        std::set<Transaction> txs;
+    };
+
     class BitcoinPeer : public Peer {
     public:
         // constructors/destructor
@@ -30,128 +78,42 @@ namespace quantas {
         void endOfExperiment(std::vector<Peer*>& peers) override;
     
     private:
-        // Transaction interface
-        struct Tx {
-            // comparison overloading
-            // less than
-            bool operator<(const Tx& rhs) const {
-                int idDenomination = id / 1000000;
-                int rhsDenomination = rhs.id / 1000000;
-                if (idDenomination == rhsDenomination) {
-                    return id < rhs.id;
-                }
-                else {
-                    return (id % 1000000) < (rhs.id % 1000000);
-                }
-            }
-            // equals
-            bool operator==(const Tx& rhs) const {
-                return id == rhs.id;
-            }
+        // miner blockchain state variables
+        std::set<Block> knownBlocks_;
+        std::set<Transaction> mempool_;
+        int tipId_;
+        Block candidate_;
 
-            bool operator!=(const Tx& rhs) const {
-                return id != rhs.id;
-            }
-
-            // Transaction ID
-            int id = -1;
-            // Round it was sent on
-            int roundSent = -1;
-
-            // Currently, this is not representative of ACTUAL bitcoin.
-            // Simply because Tx's have input/output fields, not necessarily sender/receiver.
-            // for simulation sake, just deal w/ it for now
-            interfaceId sender = NO_PEER_ID;
-            interfaceId receiver = NO_PEER_ID;
-        };
-
-        // block structure
-        struct Bk {
-            // based on time/round mined
-            bool operator<(const Bk& rhs) const {
-                return roundMined < rhs.roundMined;
-            }
-
-            bool operator==(const Bk& rhs) const {
-                return id == rhs.id;
-            }
-
-            // header information
-            int id = -1; 
-            // used for determining fork resolution
-            int height = -1; 
-            // previous id
-            int prevID;
-            // round block was mined
-            int roundMined = -1;
-
-            // tx information
-            // number of transactions (basically txs.size)
-            int numTx = 0;
-            // transactions
-            std::set<Tx> txs;
-            // coinbase transaction (the first tx in the block)
-            // not sure if this is specifically the best way to do this? ¯\_(ツ)_/¯
-            Tx cbTx;
-        };
-
-        // INPUT CHECK FUNCTIONS
-        // checks the input stream for broadcasted messages/blocks/transactions/anything i guess
-        void checkInStream();
-
-        // MESSAGE LOGGING FUNCTIONS
-        // could include something that logs the blocks into the output json file
-        void logMinedBlock(const Bk&);
-        // logs the current blockchain of a node
-        void logCurrentBlockChain();
-
-        // MESSAGE BUILDING FUNCTIONS
-        // builds json message for blocks
-        json buildBlockMessage(const Bk&);
-        // builds json message for transactions
-        json buildTxMessage(const Tx&);
-        // builds a transaction/block from an incoming message
-        Tx buildTxFromMessage(const json&);
-        Bk buildBlockFromMessage(const json&);
-        // builds entire blockchain from topBlockID_
-        std::string buildBlockChain();
-        // builds blockchain logging message
-        json buildBlockChainMessage();
-        // builds message for all known blocks
-        json buildKnownBlocksMessage();
-
-        // fork handling helpers
-        int findCommonAncestor(int newTipId);
-        std::vector<int> buildChainPathToAncestor(int fromBlockId, int ancestorId);
-        bool validateForkBranch(const std::vector<int>& branchIds);
-        void reinsertAbandonedTransactions(const std::vector<int>& abandonedBranchIds);
-        void removeConfirmedTransactionsFromMempool(const std::vector<int>& branchIds);
-        int recordConfirmedTransactionsFromBlock(const Bk& block);
-        int countUserTransactionsInBlock(const Bk& block) const;
-
-        // BLOCKCHAIN SPECIFIC FUNCTIONS/VARIABLES
-        // Known Blocks
-        std::unordered_map<int, Bk> knownBlocks_;
-        // Orphan Blocks
-
-        // Known Transactions
-        std::unordered_map<int, Tx> knownTxs_;
-        // Mempool for unconfirmed transactions
-        std::set<Tx> mempool_;
-        // contains the id of the most recent mined block
-        int topBlockID_ = -1;
-        // block currently being mined
-        Bk currentBlock_;
-
-        // probability for a block to be mined by the node
-        double mineProbability_ = 0.05;
-        // number of blocks mined by this node
+        // block/tx creation variables
+        double mineProbability_ = 0.01;
+        double txProbability_ = 0.2;
+        int txsMade_ = 0;
         int blocksMined_ = 0;
 
-        // probability for transaction to be made
-        double txProbability_ = 0.2;
-        // transactions made
-        int txsMade_ = 0;
+        // block/tx creation functions
+        Block createNewBlock();
+        Transaction createNewTransaction(const interfaceId& sourceId, const interfaceId& receiverId);
+        void attemptMine();             // attempt to mine current candidate
+        void attemptTx();               // attempt to create new transaction
+
+        // block/tx helper functions
+        Block hasBlock(const Block&) const;
+        Transaction hasTx(const Transaction&) const;
+
+        // msg sending/receiving
+        void checkInStream();
+        json buildHeaderMsg(const Block& b) const;
+        json buildGetDataMsg(const int& id) const;
+        json buildCmpBlockMsg(const Block& b) const;
+        json buildGetBlockTxnMsg(const int& id) const;
+        json buildBlockTxnMsg(const Block& b) const;
+        json buildTxnMsg(const Transaction& t) const;
+        Block buildBlockFromMsg(const json& msg) const;
+        Block buildTxnFromMsg(const json& msg) const;
+        int msgsSentThisRound_ = 0;
+
+        // network variables
+        std::vector<interfaceId> hbnNeighbors_;     // tendrilStaller specific: HBN neighbors
     };
 }
 

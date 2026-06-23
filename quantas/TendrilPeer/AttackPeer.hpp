@@ -9,10 +9,10 @@
 #include <string>
 #include <iostream>
 
-#include "../Common/PowPeer.hpp"
+#include "../Common/Peer.hpp"
 
 namespace quantas {
-    class AttackPeer : public PoWPeer {
+    class AttackPeer : public Peer {
 
     };
 }

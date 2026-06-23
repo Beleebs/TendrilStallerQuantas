@@ -9,12 +9,12 @@
         "threadCount": 1,
         "parameters": {
             "outputFile": "bitcoin1.txt",
-            "mineProbability": 0.02,
-            "txProbability": 0.2
+            "mineProbability": 0.01,
+            "txProbability": 0.1
         },
         "distribution": {
             "type": "uniform",
-            "maxDelay": 3,
+            "maxDelay": 1,
             "maxMsgsRec": 30
         },
         "topology": {
