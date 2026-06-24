@@ -56,9 +56,9 @@ namespace quantas {
             return id == rhs.id && miner == rhs.miner;
         }
 
-        // limit of 10 txns per block
+        // limit txns per block
         bool isFull() const {
-            return txns.size() > 10;
+            return txns.size() >= 15;
         }
 
         int id = -2;

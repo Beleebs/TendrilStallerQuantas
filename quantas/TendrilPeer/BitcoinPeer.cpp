@@ -134,6 +134,7 @@ namespace quantas {
         t.roundCreated = RoundManager::currentRound();
         t.source = sourceId;
         t.receiver = receiverId;
+        ++txnsMade_;
         return t;
     }
 
@@ -141,7 +142,10 @@ namespace quantas {
         int random = rand() % 100 + 1;
         if (random >= 100 - (100 * mineProbability_)) {
             // debug
-            std::string debugOutput = "Block mined, ID: " + std::to_string(candidate_.id) + ", Miner ID: " + std::to_string(candidate_.miner);
+            std::string debugOutput = 
+                "Block mined, ID: " + std::to_string(candidate_.id) + 
+                ", Miner ID: " + std::to_string(candidate_.miner) + 
+                ", Height: " + std::to_string(candidate_.height);
             QUANTAS_LOG_DEBUG("attemptMine") << debugOutput;
 
             // insert correct block transactions
@@ -172,7 +176,7 @@ namespace quantas {
         Block current = tip_;
         QUANTAS_LOG_TRACE("insertValidTransactions") << "Before parsing blockchain";
         while (current.prevId != -2 || current.prevMiner != -2) {
-            QUANTAS_LOG_TRACE("insertValidTransactions") << "current MinerID:BlockID: " << current.miner << ":" << current.id;
+            QUANTAS_LOG_TRACE("insertValidTransactions") << "current block id: " << current.id << ", miner id: " << current.miner;
             Block prevBlock = getStoredBlock(current.prevId, current.prevMiner);
             for (const auto& t : current.txns) {
                 foundTxns.insert(t);
@@ -182,16 +186,20 @@ namespace quantas {
 
         QUANTAS_LOG_TRACE("insertValidTransactions") << "Before inserting txns";
         // until the current block is full, insert transactions that aren't found in foundTxns
-        while (!b.isFull()) {
-            for (const auto& t : mempool_) {
+        for (const auto& t : mempool_) {
+            if (!b.isFull()) {
                 auto it = foundTxns.find(t);
                 if (it == foundTxns.end()) {
                     b.txns.insert(t);
+                    QUANTAS_LOG_TRACE("insertValidTransactions") << "inserting txn id: " << t.id << " from source id: " << t.source << ". New block size: " << b.txns.size();
                 }
             }
-            QUANTAS_LOG_TRACE("insertValidTransactions") << "block full, exiting...";
-            break;
+            else {
+                QUANTAS_LOG_TRACE("insertValidTransactions") << "block full, exiting...";
+                break;
+            } 
         }
+
         QUANTAS_LOG_TRACE("insertValidTransactions") << "end of insertValidTransactions";
     }
 
@@ -217,7 +225,8 @@ namespace quantas {
             json newTxMsg = buildTxnMsg(newTx);
             std::string debugOutput = "Transaction Made, Source: " + std::to_string(newTx.source) + ", ID: " + std::to_string(newTx.id) + ", Recipient: " + std::to_string(newTx.receiver);
             QUANTAS_LOG_DEBUG("attemptTxn") << debugOutput;
-            broadcast(newTxMsg);
+            // broadcast(newTxMsg);     // standard output
+            randomMulticast(newTxMsg);  // used for creating GET_BLOCK_TXN requests
             ++msgsSentThisRound_;
         }
     }
@@ -415,8 +424,8 @@ namespace quantas {
                     // debug
                     debugOutput = 
                         "Node " + std::to_string(publicId()) + 
-                        " doesn't have all txns found in block id: " + std::to_string(minerId) + 
-                        ":" + std::to_string(blockId) + 
+                        " doesn't have all txns found in block id: " + std::to_string(blockId) + 
+                        ", from miner id: " + std::to_string(minerId) + 
                         ", sending GET_BLOCK_TXN.";
                     QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
 
@@ -431,8 +440,8 @@ namespace quantas {
                     // debug
                     debugOutput = 
                         "Node " + std::to_string(publicId()) + 
-                        " Has all txns found in block id: " + std::to_string(minerId) + 
-                        ":" + std::to_string(blockId);
+                        " Has all txns found in block id: " + std::to_string(blockId) + 
+                        ", from miner id: " + std::to_string(minerId);
                     QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
 
                     for (const auto& t : msg["content"]["tx_ids"]) {
@@ -444,9 +453,33 @@ namespace quantas {
                     // insert new block, set as tip, and create new candidate
                     knownBlocks_.insert(newBlock);
 
-                    // IMPLEMENT FORK LOGIC
-                    tip_ = newBlock;
-                    candidate_ = createNewBlock();
+                    // If the new height is greater than the current tip's height, adopt new longest chain
+                    if (tip_.height < newBlock.height) {
+                        // debug
+                        debugOutput = 
+                            "newBlock's height: " + std::to_string(newBlock.height) + 
+                            " > tip_'s height: " + std::to_string(tip_.height) +
+                            ". Setting as new tip and creating new candidate...";
+                        QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
+                        tip_ = newBlock;
+                        candidate_ = createNewBlock();
+
+                        // debug
+                        debugOutput =
+                            "Tip updated! New tip id: " + std::to_string(tip_.id) + 
+                            ", miner id: " + std::to_string(tip_.miner) +
+                            ". New height: " + std::to_string(tip_.height);
+                        QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+                    }
+                    else {
+                        // debug
+                        debugOutput = 
+                            "newBlock's height: " + std::to_string(newBlock.height) + 
+                            " <= tip_'s height: " + std::to_string(tip_.height) +
+                            ". Keeping candidate.";
+                        QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+                    }
                 }
 
             }
@@ -462,7 +495,9 @@ namespace quantas {
                 interfaceId minerId = msg["content"]["miner_id"];
                 if (hasBlock(blockId, minerId)) {
                     // debug
-                    debugOutput = "Sending txns from block id: " + std::to_string(minerId) + ":" + std::to_string(blockId);
+                    debugOutput = 
+                        "Sending txns from block id: " + std::to_string(blockId) + 
+                        ", from miner id: " + std::to_string(minerId);
                     QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
 
                     Block tempBlock = getStoredBlock(blockId, minerId);
@@ -498,18 +533,34 @@ namespace quantas {
                         knownBlocks_.erase(newBlock);
                         knownBlocks_.insert(newBlock);
 
-                        // IMPLEMENT FORK LOGIC
+                        // Same fork logic
+                        if (tip_.height < newBlock.height) {
+                            // debug
+                            debugOutput = 
+                                "newBlock's height: " + std::to_string(newBlock.height) + 
+                                " > tip_'s height: " + std::to_string(tip_.height) +
+                                ". Setting as new tip and creating new candidate...";
+                            QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
 
-                        tip_ = newBlock;
-                        candidate_ = createNewBlock();
+                            tip_ = newBlock;
+                            candidate_ = createNewBlock();
+
+                            // debug
+                            debugOutput =
+                                "Tip updated! New tip id: " + std::to_string(tip_.id) + 
+                                ", miner id: " + std::to_string(tip_.miner) +
+                                ". New height: " + std::to_string(tip_.height);
+                            QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+                        }
+                        else {
+                            // debug
+                            debugOutput = 
+                                "newBlock's height: " + std::to_string(newBlock.height) + 
+                                " <= tip_'s height: " + std::to_string(tip_.height) +
+                                ". Keeping candidate.";
+                            QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+                        }
                         isWaiting_ = false;
-
-                        // debug
-                        debugOutput =
-                            "Node " + std::to_string(publicId()) + 
-                            ": Tip updated! New tip id: " + std::to_string(tip_.miner) +
-                            ":" + std::to_string(tip_.id);
-                        QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
                     }
                 }
                 // else do nothing!! weird propagation
@@ -653,7 +704,7 @@ namespace quantas {
 
             // coinbase TXN, ignore
             if (t["source_id"] == -1) {
-                QUANTAS_LOG_DEBUG("hasAllCmpBlockTxns") << "\tFound CoinBase Txn. Continuing...";
+                QUANTAS_LOG_DEBUG("hasAllCmpBlockTxns") << "\t\tFound CoinBase Txn. Continuing...";
                 continue;
             }
 

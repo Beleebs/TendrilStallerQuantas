@@ -8,8 +8,8 @@
         "id": "delay1",
         "threadCount": 1,
         "parameters": {
-            "mineProbability": 0.02,
-            "txProbability": 0.1
+            "mineProbability": 0.01,
+            "txProbability": 0.05
         },
         "distribution": {
             "type": "uniform",
@@ -22,14 +22,14 @@
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,
-        "rounds": 1000
+        "rounds": 100
         },
         {
         "id": "delay3",
         "threadCount": 1,
         "parameters": {
-            "mineProbability": 0.02,
-            "txProbability": 0.1
+            "mineProbability": 0.01,
+            "txProbability": 0.05
         },
         "distribution": {
             "type": "uniform",
@@ -42,14 +42,14 @@
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,
-        "rounds": 1000
+        "rounds": 100
         },
         {
         "id": "delay5",
         "threadCount": 1,
         "parameters": {
-            "mineProbability": 0.02,
-            "txProbability": 0.1
+            "mineProbability": 0.01,
+            "txProbability": 0.05
         },
         "distribution": {
             "type": "uniform",
@@ -62,14 +62,14 @@
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,
-        "rounds": 1000
+        "rounds": 100
         },
         {
         "id": "delay10",
         "threadCount": 1,
         "parameters": {
-            "mineProbability": 0.02,
-            "txProbability": 0.1
+            "mineProbability": 0.01,
+            "txProbability": 0.05
         },
         "distribution": {
             "type": "uniform",
@@ -82,7 +82,7 @@
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,
-        "rounds": 1000
+        "rounds": 100
         }
     ]
 }
