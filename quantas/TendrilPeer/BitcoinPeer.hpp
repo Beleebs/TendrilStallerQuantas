@@ -65,7 +65,8 @@ namespace quantas {
         int prevId = -2;
         int roundMined = -2;
         int height = -2;
-        interfaceId miner = -2L;
+        interfaceId miner = -2;
+        interfaceId prevMiner = -2;
 
         std::set<Transaction> txns;
     };
@@ -86,7 +87,7 @@ namespace quantas {
     private:
         // miner blockchain state variables
         std::set<Block> knownBlocks_;
-        std::set<Transaction> mempool_;
+        std::deque<Transaction> mempool_;
         Block tip_;
         Block candidate_;
         bool isWaiting_ = false;        // locks instream if waiting for CMP_BLOCK or BLOCK_TXN
@@ -105,6 +106,7 @@ namespace quantas {
         Transaction createNewTransaction(const interfaceId& sourceId, const interfaceId& receiverId);
         void attemptMine();             // attempt to mine current candidate
         void attemptTxn();              // attempt to create new transaction
+        void insertValidTransactions(Block& b);   // need to parse current blockchain to make sure that input txns are valid
         int txnsMadeThisRound_ = 0;
 
         // block/txn helper functions
@@ -128,6 +130,8 @@ namespace quantas {
         std::set<Transaction> getBlockTxnsFromMessage(const json& msg) const;
         bool hasAllCmpBlockTxns(const json& msg) const;
         int msgsSentThisRound_ = 0;
+
+        // json experiment logging
 
         // network variables
         std::set<interfaceId> hbnNeighbors_;     // tendrilStaller specific: HBN neighbors

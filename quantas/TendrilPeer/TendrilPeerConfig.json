@@ -13,7 +13,7 @@
         },
         "distribution": {
             "type": "uniform",
-            "maxDelay": 3,
+            "maxDelay": 1,
             "maxMsgsRec": 30
         },
         "topology": {
@@ -21,8 +21,8 @@
             "initialPeers": 5,
             "initialPeerType": "BitcoinPeer"
         },
-        "tests": 3,
-        "rounds": 10
+        "tests": 1,
+        "rounds": 20
         }
     ]
 }

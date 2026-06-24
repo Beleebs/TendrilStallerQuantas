@@ -37,6 +37,7 @@ namespace quantas {
         genesis.roundMined = 0;
         genesis.height = 0;
         genesis.miner = -1;
+        genesis.prevMiner = -2;
         Transaction genesisTxn;
         genesisTxn.id = -1;
         genesisTxn.roundCreated = 0;
@@ -61,34 +62,34 @@ namespace quantas {
     }
 
     void BitcoinPeer::performComputation() {
-        std::string greetingMessage = "Node " + std::to_string(publicId()) + ": ";
-        int dialogueSelection = rand() % 5;
-        switch(dialogueSelection) {
-            case 0:
-                greetingMessage += "Greetings!";
-                break;
-            case 1:
-                greetingMessage += "... hi.";
-                break;
-            case 2:
-                greetingMessage += "yo wsg";
-                break;
-            case 3:
-                greetingMessage += "#fairs";
-                break;
-            case 4:
-                greetingMessage += "HI!!!!!!!!";
-                break;
-            default:
-                greetingMessage += "hello.";
-        }
-        QUANTAS_LOG_DEBUG("pc") << greetingMessage;
+        // std::string greetingMessage = "Node " + std::to_string(publicId()) + ": ";
+        // int dialogueSelection = rand() % 5;
+        // switch(dialogueSelection) {
+        //     case 0:
+        //         greetingMessage += "Greetings!";
+        //         break;
+        //     case 1:
+        //         greetingMessage += "... hi.";
+        //         break;
+        //     case 2:
+        //         greetingMessage += "yo wsg";
+        //         break;
+        //     case 3:
+        //         greetingMessage += "#fairs";
+        //         break;
+        //     case 4:
+        //         greetingMessage += "HI!!!!!!!!";
+        //         break;
+        //     default:
+        //         greetingMessage += "hello.";
+        // }
+        // QUANTAS_LOG_DEBUG("pc") << greetingMessage;
 
         // // check for incoming messages
         checkInStream();
 
         // // attempt to mine the head block
-        // attemptMine();
+        attemptMine();
 
         // // attempt to introduce a new transaction
         attemptTxn();
@@ -96,7 +97,6 @@ namespace quantas {
 
     void BitcoinPeer::endOfRound(std::vector<Peer*>& peers) {
         std::vector<BitcoinPeer*> bpeers = reinterpret_cast<std::vector<BitcoinPeer*>&>(peers);
-        QUANTAS_LOG_INFO("eor") << "End of Round " + std::to_string(RoundManager::currentRound() - 1) + ".";
         int txsMade = 0;
         int msgsSent = 0;
         for (BitcoinPeer* bp : bpeers) {
@@ -105,8 +105,8 @@ namespace quantas {
             bp->txnsMadeThisRound_ = 0;
             bp->msgsSentThisRound_ = 0;
         }
-        QUANTAS_LOG_DEBUG("eor") << "Transactions made: " + std::to_string(txsMade);
-        QUANTAS_LOG_DEBUG("eor") << "Messages sent: " + std::to_string(msgsSent) << std::endl;
+
+        QUANTAS_LOG_INFO("eor") << "End of Round " + std::to_string(RoundManager::currentRound() - 1) + ". Transactions made: " + std::to_string(txsMade) + ", Messages sent: " + std::to_string(msgsSent) << std::endl;
         // count blocks mined later
     }
 
@@ -118,6 +118,7 @@ namespace quantas {
         Block b;
         b.id = blocksMined_;
         b.prevId = tip_.id;
+        b.prevMiner = tip_.miner;
         b.roundMined = -1;
         b.miner = publicId();
         b.height = tip_.height + 1;
@@ -139,9 +140,59 @@ namespace quantas {
     void BitcoinPeer::attemptMine() {
         int random = rand() % 100 + 1;
         if (random >= 100 - (100 * mineProbability_)) {
+            // debug
+            std::string debugOutput = "Block mined, ID: " + std::to_string(candidate_.id) + ", Miner ID: " + std::to_string(candidate_.miner);
+            QUANTAS_LOG_DEBUG("attemptMine") << debugOutput;
+
+            // insert correct block transactions
+            insertValidTransactions(candidate_);
+            QUANTAS_LOG_TRACE("attemptMine") << "After insertValidTransactions()";
+
             // block has been mined
+            candidate_.roundMined = RoundManager::currentRound();
+            knownBlocks_.insert(candidate_);
+            tip_ = candidate_;
+            ++blocksMined_;
+            Block newCandidate = createNewBlock();
+            QUANTAS_LOG_TRACE("attemptMine") << "After creating new block";
+
             // build header message
+            broadcast(buildHeaderMsg(candidate_));
+            QUANTAS_LOG_TRACE("attemptMine") << "After header broadcast";
+
+            // finally update state and continue
+            candidate_ = newCandidate;
+            QUANTAS_LOG_TRACE("attemptMine") << "After updating new candidate";
         }
+    }
+
+    void BitcoinPeer::insertValidTransactions(Block& b) {
+        // parse current blockchain
+        std::set<Transaction> foundTxns;
+        Block current = tip_;
+        QUANTAS_LOG_TRACE("insertValidTransactions") << "Before parsing blockchain";
+        while (current.prevId != -2 || current.prevMiner != -2) {
+            QUANTAS_LOG_TRACE("insertValidTransactions") << "current MinerID:BlockID: " << current.miner << ":" << current.id;
+            Block prevBlock = getStoredBlock(current.prevId, current.prevMiner);
+            for (const auto& t : current.txns) {
+                foundTxns.insert(t);
+            }
+            current = prevBlock;
+        }
+
+        QUANTAS_LOG_TRACE("insertValidTransactions") << "Before inserting txns";
+        // until the current block is full, insert transactions that aren't found in foundTxns
+        while (!b.isFull()) {
+            for (const auto& t : mempool_) {
+                auto it = foundTxns.find(t);
+                if (it == foundTxns.end()) {
+                    b.txns.insert(t);
+                }
+            }
+            QUANTAS_LOG_TRACE("insertValidTransactions") << "block full, exiting...";
+            break;
+        }
+        QUANTAS_LOG_TRACE("insertValidTransactions") << "end of insertValidTransactions";
     }
 
     void BitcoinPeer::attemptTxn() {
@@ -155,10 +206,12 @@ namespace quantas {
                 auto it = neighborSet.begin();
                 std::advance(it, index);
                 newTx = createNewTransaction(publicId(), *it);
+                mempool_.push_back(newTx);
                 ++txnsMade_; ++txnsMadeThisRound_;
             }
             else {
                 newTx = createNewTransaction(publicId(), -1);
+                mempool_.push_back(newTx);
                 ++txnsMade_; ++txnsMadeThisRound_;
             }
             json newTxMsg = buildTxnMsg(newTx);
@@ -193,7 +246,7 @@ namespace quantas {
     }
 
     bool BitcoinPeer::hasTxn(const Transaction& t) const {
-        auto it = mempool_.find(t);
+        auto it = std::find(mempool_.begin(), mempool_.end(), t);
         if (it != mempool_.end()) {
             return true;
         }
@@ -206,7 +259,7 @@ namespace quantas {
         Transaction tempTxn;
         tempTxn.id = id;
         tempTxn.source = sourceId;
-        auto it = mempool_.find(tempTxn);
+        auto it = std::find(mempool_.begin(), mempool_.end(), tempTxn);
         if (it != mempool_.end()) {
             return true;
         }
@@ -233,7 +286,7 @@ namespace quantas {
         Transaction tempTxn;
         tempTxn.id = id;
         tempTxn.source = sourceId;
-        auto it = mempool_.find(tempTxn);
+        auto it = std::find(mempool_.begin(), mempool_.end(), tempTxn);
         if (it != mempool_.end()) {
             return *it;
         }
@@ -248,11 +301,25 @@ namespace quantas {
         while (!inStreamEmpty()) {
             Packet p = popInStream();
             json msg = p.getMessage();
+            std::string debugOutput;
             // deal with specifics based on the message type
-            if (msg["type"] == MessageType::HEADER) {
+            if (msg["type"] == MessageType::HEADER && !isWaiting_) {
+                // debug
+                debugOutput = 
+                    "Node " + std::to_string(publicId()) + 
+                    " recieved HEADER from " + std::to_string(p.sourceId()) + 
+                    ". (delay: " + std::to_string(p.getDelay()) + ")";
+                QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
                 int blockId = msg["content"]["block_id"];
                 interfaceId minerId = msg["content"]["miner_id"];
                 if (!hasBlock(blockId, minerId)) {
+                    // debug
+                    debugOutput = 
+                    "New block, block ID: " + std::to_string(blockId) +
+                    ", miner ID: " + std::to_string(minerId);
+                    QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
                     Block tempBlock;
                     tempBlock.id = blockId;
                     tempBlock.miner = minerId;
@@ -261,11 +328,30 @@ namespace quantas {
                     isWaiting_ = true;
                 }
                 // else just ignore the header
+                else {
+                    // debug
+                    debugOutput = "Block already exists.";
+                    QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+                    continue;
+                }
             }
             else if (msg["type"] == MessageType::GET_DATA) {
+                // debug
+                debugOutput = 
+                    "Node " + std::to_string(publicId()) + 
+                    " recieved GET_DATA from " + std::to_string(p.sourceId()) + 
+                    ". (delay: " + std::to_string(p.getDelay()) + ")";
+                QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
                 int blockId = msg["content"]["block_id_requested"];
                 interfaceId minerId = msg["content"]["miner_id"];
                 if (hasBlock(blockId, minerId)) {
+                    // debug
+                    debugOutput = 
+                        "Block found, sending CMP_BLOCK for Block ID: " + std::to_string(blockId) +
+                        " to recipient: " + std::to_string(p.sourceId());
+                    QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
                     Block tempBlock = getStoredBlock(blockId, minerId);
                     unicastTo(buildCmpBlockMsg(tempBlock), p.sourceId());
                     ++msgsSentThisRound_;
@@ -284,47 +370,101 @@ namespace quantas {
                 Block newBlock;
 
                 // if the CMP_BLOCK sent was from one of the HBN neighbors
-                if (it != hbnNeighbors_.end()) {
+                if (it != hbnNeighbors_.end() && !isWaiting_) {
+                    // debug
+                    debugOutput = 
+                        "Node " + std::to_string(publicId()) + 
+                        " recieved CMP_BLOCK from HBN neighbor " + std::to_string(p.sourceId()) + 
+                        ". (delay: " + std::to_string(p.getDelay()) + ")";
+                    QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
                     // need to build block off of it
                     newBlock = buildBlockFromMsg(msg);
                 }
                 // if the CMP_BLOCK was sent in response to a GET_DATA
                 else if (it == hbnNeighbors_.end() && isWaiting_) {
-                    isWaiting_ = false;
-                    newBlock = buildBlockFromMsg(msg);
+                    if (blockId != -2) {
+                        // debug
+                        debugOutput = 
+                            "Node " + std::to_string(publicId()) + 
+                            " recieved CMP_BLOCK from Non-HBN neighbor " + std::to_string(p.sourceId()) + 
+                            ". (delay: " + std::to_string(p.getDelay()) + ")";
+                        QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
+                        isWaiting_ = false;
+                        newBlock = buildBlockFromMsg(msg);
+                    }
+                    else {
+                        // debug
+                        debugOutput = 
+                            "Empty block sent, sender ID " + std::to_string(p.sourceId()) +
+                            " does not have requested block.";
+                        QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+                    }
                 }
                 // else, drop it. (unwanted unsolicited CMP_BLOCK)
                 else {
+                    // debug
+                    debugOutput = "Received unwanted unsolicited CMP_BLOCK from: " + std::to_string(p.sourceId());
+                    QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
                     continue;
                 }
 
                 // if the node does not have all of the transactions listed in the block
                 if (!hasAllCmpBlockTxns(msg)) {
+                    // debug
+                    debugOutput = 
+                        "Node " + std::to_string(publicId()) + 
+                        " doesn't have all txns found in block id: " + std::to_string(minerId) + 
+                        ":" + std::to_string(blockId) + 
+                        ", sending GET_BLOCK_TXN.";
+                    QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
                     // insert the current block
                     knownBlocks_.insert(newBlock);
                     // need to send GET_BLOCK_TXN request
                     unicastTo(buildGetBlockTxnMsg(newBlock), p.sourceId());
                     ++msgsSentThisRound_;
-                    isWaiting_ = true;
+                    isWaiting_ = true;      // waiting for BlockTxns Message
                 }
                 else {
+                    // debug
+                    debugOutput = 
+                        "Node " + std::to_string(publicId()) + 
+                        " Has all txns found in block id: " + std::to_string(minerId) + 
+                        ":" + std::to_string(blockId);
+                    QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
                     for (const auto& t : msg["content"]["tx_ids"]) {
-                        Transaction tempTxn = getStoredTxn(t[1], t[0]);
+                        Transaction tempTxn = getStoredTxn(t["tx_id"], t["source_id"]);
                         if (!newBlock.isFull()) {
                             newBlock.txns.insert(tempTxn);
                         }
                     }
                     // insert new block, set as tip, and create new candidate
                     knownBlocks_.insert(newBlock);
+
+                    // IMPLEMENT FORK LOGIC
                     tip_ = newBlock;
                     candidate_ = createNewBlock();
                 }
 
             }
             else if (msg["type"] == MessageType::GET_BLOCK_TXN) {
+                // debug
+                debugOutput = 
+                    "Node " + std::to_string(publicId()) + 
+                    " recieved GET_BLOCK_TXN from " + std::to_string(p.sourceId()) + 
+                    ". (delay: " + std::to_string(p.getDelay()) + ")";
+                QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
                 int blockId = msg["content"]["block_txn_requested"];
                 interfaceId minerId = msg["content"]["miner_id"];
                 if (hasBlock(blockId, minerId)) {
+                    // debug
+                    debugOutput = "Sending txns from block id: " + std::to_string(minerId) + ":" + std::to_string(blockId);
+                    QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
                     Block tempBlock = getStoredBlock(blockId, minerId);
                     unicastTo(buildBlockTxnMsg(tempBlock), p.sourceId());
                     ++msgsSentThisRound_;
@@ -332,29 +472,58 @@ namespace quantas {
             }
             else if (msg["type"] == MessageType::BLOCK_TXN) {
                 if (isWaiting_) {
+                    // debug
+                    debugOutput = 
+                        "Node " + std::to_string(publicId()) + 
+                        " recieved BLOCK_TXN from " + std::to_string(p.sourceId()) + 
+                        ". (delay: " + std::to_string(p.getDelay()) + ")";
+                    QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
                     // pull block from known blocks
                     int blockId = msg["content"]["block_id"];
                     interfaceId minerId = msg["content"]["miner_id"];
                     if (hasBlock(blockId, minerId)) {
+                        // debug
+                        debugOutput = "Block found, inserting new transactions...";
+                        QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+
                         Block newBlock = getStoredBlock(blockId, minerId);
                         for (const auto& t : getBlockTxnsFromMessage(msg)) {
                             if (!newBlock.isFull()) {
                                 newBlock.txns.insert(t);
+                                mempool_.push_back(t);      // also insert into the mempool
                             }
                         }
                         // replace old block with updated transactions
                         knownBlocks_.erase(newBlock);
                         knownBlocks_.insert(newBlock);
+
+                        // IMPLEMENT FORK LOGIC
+
                         tip_ = newBlock;
                         candidate_ = createNewBlock();
                         isWaiting_ = false;
+
+                        // debug
+                        debugOutput =
+                            "Node " + std::to_string(publicId()) + 
+                            ": Tip updated! New tip id: " + std::to_string(tip_.miner) +
+                            ":" + std::to_string(tip_.id);
+                        QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
                     }
                 }
                 // else do nothing!! weird propagation
+                else {
+                    // debug
+                    debugOutput = 
+                        "Node " + std::to_string(publicId()) + 
+                        " recieved random BLOCK_TXN from " + std::to_string(p.sourceId()) + ".";
+                    QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+                }
             }
             else if (msg["type"] == MessageType::TXN) {
                 Transaction incomingTxn = buildTxnFromMsg(msg);
-                mempool_.insert(incomingTxn);
+                mempool_.push_back(incomingTxn);
                 std::string debugOutput = 
                     "Node " + std::to_string(publicId()) + 
                     " recieved TXN ID: " + std::to_string(incomingTxn.id) + 
@@ -365,18 +534,16 @@ namespace quantas {
         }
     }
 
-    // requires: block_id, prev_id, round_mined, miner_id
+    // requires: block_id, miner_id
     json BitcoinPeer::buildHeaderMsg(const Block& b) const {
         json msg;    
         msg["type"] = MessageType::HEADER;
         msg["content"]["block_id"] = b.id;
-        msg["content"]["prev_id"] = b.prevId;
-        msg["content"]["round_mined"] = b.roundMined;
         msg["content"]["miner_id"] = b.miner;
         return msg;
     }
 
-    // requires: block_id_requested
+    // requires: block_id_requested, miner_id
     json BitcoinPeer::buildGetDataMsg(const Block& b) const {
         json msg;
         msg["type"] = MessageType::GET_DATA;
@@ -385,7 +552,7 @@ namespace quantas {
         return msg;
     }
 
-    // requires: block_id, prev_id, round_mined, miner_id, tx_ids
+    // requires: block_id, prev_id, round_mined, miner_id, prev_miner_id, height, tx_ids
     json BitcoinPeer::buildCmpBlockMsg(const Block& b) const {
         json msg;
         msg["type"] = MessageType::CMP_BLOCK;
@@ -393,16 +560,19 @@ namespace quantas {
         msg["content"]["prev_id"] = b.prevId;
         msg["content"]["round_mined"] = b.roundMined;
         msg["content"]["miner_id"] = b.miner;
+        msg["content"]["prev_miner_id"] = b.miner;
+        msg["content"]["height"] = b.height;
         for (const auto& t : b.txns) {
             json combinedId = {
-                {t.source, t.id}
+                {"source_id", t.source},
+                {"tx_id", t.id}
             };
             msg["content"]["tx_ids"] += combinedId;
         }
         return msg;
     }
 
-    // requires: block_tx_requested
+    // requires: block_tx_requested, miner_id
     json BitcoinPeer::buildGetBlockTxnMsg(const Block& b) const {
         json msg;
         msg["type"] = MessageType::GET_BLOCK_TXN;
@@ -411,7 +581,7 @@ namespace quantas {
         return msg;
     }
 
-    // requires: txs (bunch of TXN messages)
+    // requires: block_id, miner_id, txs (bunch of TXN messages)
     json BitcoinPeer::buildBlockTxnMsg(const Block& b) const {
         json msg;
         msg["type"] = MessageType::BLOCK_TXN;
@@ -442,6 +612,7 @@ namespace quantas {
             result.prevId = msg["content"]["prev_id"];
             result.roundMined = msg["content"]["round_mined"];
             result.miner = msg["content"]["miner_id"];
+            result.height = msg["content"]["height"];
         }
         // contains txn info
         else if (msg["type"] == MessageType::BLOCK_TXN) {
@@ -476,11 +647,22 @@ namespace quantas {
 
     // incoming message is type CMP_BLOCK
     bool BitcoinPeer::hasAllCmpBlockTxns(const json& msg) const {
+        QUANTAS_LOG_TRACE("hasAllCmpBlockTxns") << "In hasAllCmpBlockTxns for Node: " << publicId();
         for (const auto& t : msg["content"]["tx_ids"]) {
-            if (!hasTxn(t[1], t[0])) {
+            QUANTAS_LOG_DEBUG("hasAllCmpBlockTxns") << "Source ID: " << t["source_id"] << ", Txn ID: " << t["tx_id"];
+
+            // coinbase TXN, ignore
+            if (t["source_id"] == -1) {
+                QUANTAS_LOG_DEBUG("hasAllCmpBlockTxns") << "\tFound CoinBase Txn. Continuing...";
+                continue;
+            }
+
+            if (!hasTxn(t["tx_id"], t["source_id"])) {
+                QUANTAS_LOG_DEBUG("hasAllCmpBlockTxns") << "Returned False, missing transaction.";
                 return false;
             }
         }
+        QUANTAS_LOG_DEBUG("hasAllCmpBlockTxns") << "Returned True!";
         return true;
     }
 
