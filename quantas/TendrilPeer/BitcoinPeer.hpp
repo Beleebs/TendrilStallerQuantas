@@ -38,10 +38,10 @@ namespace quantas {
             return id == rhs.id && source == rhs.source;
         }
 
-        int id = -1;
-        int roundCreated = -1;
-        interfaceId source;
-        interfaceId receiver;
+        int id = -2;
+        int roundCreated = -2;
+        interfaceId source = -2L;
+        interfaceId receiver = -2L;
     };
 
     struct Block {
@@ -56,10 +56,16 @@ namespace quantas {
             return id == rhs.id && miner == rhs.miner;
         }
 
-        int id = -1;
-        int prevId = -1;
-        int roundMined = -1;
-        interfaceId miner;
+        // limit of 10 txns per block
+        bool isFull() const {
+            return txns.size() > 10;
+        }
+
+        int id = -2;
+        int prevId = -2;
+        int roundMined = -2;
+        int height = -2;
+        interfaceId miner = -2L;
 
         std::set<Transaction> txns;
     };
@@ -99,25 +105,32 @@ namespace quantas {
         Transaction createNewTransaction(const interfaceId& sourceId, const interfaceId& receiverId);
         void attemptMine();             // attempt to mine current candidate
         void attemptTxn();              // attempt to create new transaction
+        int txnsMadeThisRound_ = 0;
 
         // block/txn helper functions
-        Block hasBlock(const Block&) const;
-        Transaction hasTxn(const Transaction&) const;
+        bool hasBlock(const Block&) const;
+        bool hasBlock(const int& id, const interfaceId& minerId) const;
+        bool hasTxn(const Transaction&) const;
+        bool hasTxn(const int& id, const interfaceId& sourceId) const;
+        Block getStoredBlock(const int& id, const interfaceId& minerId) const;
+        Transaction getStoredTxn(const int& id, const interfaceId& sourceId) const;
 
         // msg sending/receiving
         void checkInStream();
         json buildHeaderMsg(const Block& b) const;
-        json buildGetDataMsg(const int& id) const;
+        json buildGetDataMsg(const Block& b) const;
         json buildCmpBlockMsg(const Block& b) const;
-        json buildGetBlockTxnMsg(const int& id) const;
+        json buildGetBlockTxnMsg(const Block& b) const;
         json buildBlockTxnMsg(const Block& b) const;
         json buildTxnMsg(const Transaction& t) const;
         Block buildBlockFromMsg(const json& msg) const;
         Transaction buildTxnFromMsg(const json& msg) const;
+        std::set<Transaction> getBlockTxnsFromMessage(const json& msg) const;
+        bool hasAllCmpBlockTxns(const json& msg) const;
         int msgsSentThisRound_ = 0;
 
         // network variables
-        std::vector<interfaceId> hbnNeighbors_;     // tendrilStaller specific: HBN neighbors
+        std::set<interfaceId> hbnNeighbors_;     // tendrilStaller specific: HBN neighbors
     };
 }
 

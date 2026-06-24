@@ -8,22 +8,21 @@
         "id": "bitcoin1",
         "threadCount": 1,
         "parameters": {
-            "outputFile": "bitcoin1.txt",
             "mineProbability": 0.01,
             "txProbability": 0.1
         },
         "distribution": {
             "type": "uniform",
-            "maxDelay": 1,
+            "maxDelay": 3,
             "maxMsgsRec": 30
         },
         "topology": {
             "type": "complete",
-            "initialPeers": 10,
+            "initialPeers": 5,
             "initialPeerType": "BitcoinPeer"
         },
-        "tests": 1,
-        "rounds": 500
+        "tests": 3,
+        "rounds": 10
         }
     ]
 }
