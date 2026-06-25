@@ -22,7 +22,7 @@
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,
-        "rounds": 100
+        "rounds": 1000
         },
         {
         "id": "delay3",
@@ -42,7 +42,7 @@
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,
-        "rounds": 100
+        "rounds": 1000
         },
         {
         "id": "delay5",
@@ -62,7 +62,7 @@
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,
-        "rounds": 100
+        "rounds": 1000
         },
         {
         "id": "delay10",
@@ -82,7 +82,7 @@
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,
-        "rounds": 100
+        "rounds": 1000
         }
     ]
 }
