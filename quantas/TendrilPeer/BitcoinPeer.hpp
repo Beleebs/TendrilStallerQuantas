@@ -90,16 +90,17 @@ namespace quantas {
         std::deque<Transaction> mempool_;
         Block tip_;
         Block candidate_;
-        bool isWaiting_ = false;        // locks instream if waiting for CMP_BLOCK or BLOCK_TXN
+        
+        // waiting state variables
+        bool isWaiting_ = false;            // locks instream if waiting for CMP_BLOCK or BLOCK_TXN
+        int waitingBlockId_ = -2;           // these narrow the waiting criteria to the original block it is waiting for
+        interfaceId waitingMinerId_ = -2;
 
         // block/txn creation variables
         double mineProbability_ = 0.01;
         double txnProbability_ = 0.2;
         int txnsMade_ = 0;
         int blocksMined_ = 0;
-
-        // block chain helper functions
-        // something later
 
         // block/txn creation functions
         Block createNewBlock();
@@ -108,6 +109,7 @@ namespace quantas {
         void attemptTxn();              // attempt to create new transaction
         void insertValidTransactions(Block& b);   // need to parse current blockchain to make sure that input txns are valid
         int txnsMadeThisRound_ = 0;
+        int blocksMinedThisRound_ = 0;
 
         // block/txn helper functions
         bool hasBlock(const Block&) const;
@@ -125,6 +127,8 @@ namespace quantas {
         json buildGetBlockTxnMsg(const Block& b) const;
         json buildBlockTxnMsg(const Block& b) const;
         json buildTxnMsg(const Transaction& t) const;
+
+        // building from msg
         Block buildBlockFromMsg(const json& msg) const;
         Transaction buildTxnFromMsg(const json& msg) const;
         std::set<Transaction> getBlockTxnsFromMessage(const json& msg) const;
@@ -132,6 +136,8 @@ namespace quantas {
         int msgsSentThisRound_ = 0;
 
         // json experiment logging
+        void logLedger() const;
+        json buildBlockLog(const Block& b) const;
 
         // network variables
         std::set<interfaceId> hbnNeighbors_;     // tendrilStaller specific: HBN neighbors
