@@ -1,6 +1,6 @@
 // Ben Leber
 // 6/23/2026
-// Bitcoin Peer Implementation
+// Bitcoin Peer Implementation: COMPACT BLOCK DELAY
 
 #include <vector>
 #include <string>
@@ -238,12 +238,12 @@ namespace quantas {
                 std::advance(it, index);
                 newTx = createNewTransaction(publicId(), *it);
                 mempool_.push_back(newTx);
-                ++txnsMade_; ++txnsMadeThisRound_;
+                ++txnsMadeThisRound_;
             }
             else {
                 newTx = createNewTransaction(publicId(), -1);
                 mempool_.push_back(newTx);
-                ++txnsMade_; ++txnsMadeThisRound_;
+                ++txnsMadeThisRound_;
             }
             json newTxMsg = buildTxnMsg(newTx);
             std::string debugOutput = "Transaction Made, Source: " + std::to_string(newTx.source) + ", ID: " + std::to_string(newTx.id) + ", Recipient: " + std::to_string(newTx.receiver);
@@ -336,7 +336,7 @@ namespace quantas {
             json msg = p.getMessage();
             std::string debugOutput;
             // deal with specifics based on the message type
-            if (msg["type"] == MessageType::HEADER && !isWaiting_) {
+            if (msg["type"] == MessageType::HEADER) {
                 // debug
                 debugOutput = 
                     "Node " + std::to_string(publicId()) + 
@@ -348,20 +348,21 @@ namespace quantas {
                 int blockId = msg["content"]["block_id"];
                 interfaceId minerId = msg["content"]["miner_id"];
                 if (!hasBlock(blockId, minerId)) {
-                    // debug
-                    debugOutput = 
-                    "New block, block ID: " + std::to_string(blockId) +
-                    ", miner ID: " + std::to_string(minerId);
-                    QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+                    auto blockKey = std::make_pair(blockId, minerId);
+                    if (pendingBlocks_.find(blockKey) == pendingBlocks_.end()) {
+                        // debug
+                        debugOutput = 
+                            "New block, block ID: " + std::to_string(blockId) +
+                            ", miner ID: " + std::to_string(minerId);
+                        QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
 
-                    Block tempBlock;
-                    tempBlock.id = blockId;
-                    tempBlock.miner = minerId;
-                    unicastTo(buildGetDataMsg(tempBlock), p.sourceId());
-                    ++msgsSentThisRound_;
-                    isWaiting_ = true;
-                    waitingBlockId_ = blockId;
-                    waitingMinerId_ = minerId;
+                        Block tempBlock;
+                        tempBlock.id = blockId;
+                        tempBlock.miner = minerId;
+                        unicastTo(buildGetDataMsg(tempBlock), p.sourceId());
+                        ++msgsSentThisRound_;
+                        pendingBlocks_.insert(std::make_pair(blockId, minerId));
+                    }
                 }
                 // else just ignore the header
                 else {
@@ -402,34 +403,20 @@ namespace quantas {
             else if (msg["type"] == MessageType::CMP_BLOCK) {
                 int blockId = msg["content"]["block_id"];
                 interfaceId minerId = msg["content"]["miner_id"];
-                auto it = hbnNeighbors_.find(p.sourceId());
                 Block newBlock;
 
-                // if the CMP_BLOCK sent was from one of the HBN neighbors
-                if (it != hbnNeighbors_.end() && !isWaiting_) {
-                    // debug
-                    debugOutput = 
-                        "Node " + std::to_string(publicId()) + 
-                        " recieved CMP_BLOCK from HBN neighbor " + std::to_string(p.sourceId()) + 
-                        ". (delay: " + std::to_string(p.getDelay()) + ")";
-                    QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
-
-                    // need to build block off of it
-                    newBlock = buildBlockFromMsg(msg);
-                }
                 // if the CMP_BLOCK was sent in response to a GET_DATA
-                else if (it == hbnNeighbors_.end() && isWaiting_ && blockId == waitingBlockId_ && minerId == waitingMinerId_) {
+                auto blockKey = std::make_pair(blockId, minerId);
+                if (pendingBlocks_.find(blockKey) != pendingBlocks_.end()) {
                     if (blockId != -2) {
                         // debug
                         debugOutput = 
                             "Node " + std::to_string(publicId()) + 
-                            " recieved CMP_BLOCK from Non-HBN neighbor " + std::to_string(p.sourceId()) + 
+                            " recieved requested CMP_BLOCK from " + std::to_string(p.sourceId()) + 
                             ". (delay: " + std::to_string(p.getDelay()) + ")";
                         QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
 
-                        isWaiting_ = false;
-                        waitingBlockId_ = -2;
-                        waitingMinerId_ = -2;
+                        pendingBlocks_.erase(blockKey);
                         newBlock = buildBlockFromMsg(msg);
                     }
                     else {
@@ -441,10 +428,10 @@ namespace quantas {
 
                     }
                 }
-                // else, drop it. (unwanted unsolicited CMP_BLOCK)
+                // else, drop it.
                 else {
                     // debug
-                    debugOutput = "Received unwanted unsolicited and/or incorrect CMP_BLOCK from: " + std::to_string(p.sourceId());
+                    debugOutput = "Received unsolicited and/or stale CMP_BLOCK from: " + std::to_string(p.sourceId()) + "(" + std::to_string(minerId) + ":" + std::to_string(blockId) + ")";
                     QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
                     continue;
                 }
@@ -497,20 +484,31 @@ namespace quantas {
                             ". Setting as new tip and creating new candidate...";
                         QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
 
-                        adoptChain(newBlock);
+                        adoptChain(bestTip);
 
                         // debug
                         debugOutput =
-                            "Tip updated! New tip id: " + std::to_string(tip_.id) + 
-                            ", miner id: " + std::to_string(tip_.miner) +
-                            ". New height: " + std::to_string(tip_.height);
+                            "Tip updated! New candidate id: " + std::to_string(candidate_.id) + 
+                            ", miner id: " + std::to_string(candidate_.miner) +
+                            ". New height: " + std::to_string(candidate_.height);
                         QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
                     }
                     else {
-                        QUANTAS_LOG_DEBUG("checkInStream") << "newBlock not best tip, keeping current tip...";
+                        if (!hasBlock(newBlock.prevId, newBlock.prevMiner)) {
+                            QUANTAS_LOG_DEBUG("checkInStream") << "newBlock's parent missing, sending GET_DATA...'";
+                            unicastTo(buildGetDataMsg(newBlock), p.sourceId());
+                            ++msgsSentThisRound_;
+
+                            pendingBlocks_.insert(std::make_pair(newBlock.prevId, newBlock.prevMiner));
+                            // isWaiting_ = true;
+                            // waitingBlockId_ = newBlock.prevId;
+                            // waitingMinerId_ = newBlock.prevMiner;
+                        }
+                        else {
+                            QUANTAS_LOG_DEBUG("checkInStream") << "newBlock not best tip, keeping current tip...";
+                        }
                     }
                 }
-
             }
             else if (msg["type"] == MessageType::GET_BLOCK_TXN) {
                 // debug
@@ -538,7 +536,8 @@ namespace quantas {
                 // pull block from known blocks
                 int blockId = msg["content"]["block_id"];
                 interfaceId minerId = msg["content"]["miner_id"];
-                if (isWaiting_ && blockId == waitingBlockId_ && minerId == waitingMinerId_) {
+                if (isWaiting_) {
+                // if (isWaiting_ && blockId == waitingBlockId_ && minerId == waitingMinerId_) {
                     // debug
                     debugOutput = 
                         "Node " + std::to_string(publicId()) + 
@@ -575,7 +574,7 @@ namespace quantas {
                                 ". Setting as new tip and creating new candidate...";
                             QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
 
-                            adoptChain(newBlock);
+                            adoptChain(bestTip);
 
                             // debug
                             debugOutput =
@@ -642,12 +641,18 @@ namespace quantas {
         msg["content"]["miner_id"] = b.miner;
         msg["content"]["prev_miner_id"] = b.prevMiner;
         msg["content"]["height"] = b.height;
+        
         for (const auto& t : b.txns) {
-            json combinedId = {
-                {"source_id", t.source},
-                {"tx_id", t.id}
-            };
-            msg["content"]["tx_ids"] += combinedId;
+            if (t.source != -1) {   // ignore coinbase
+                json combinedId = {
+                    {"source_id", t.source},
+                    {"tx_id", t.id}
+                };
+                msg["content"]["tx_ids"].push_back(combinedId);
+            }
+            else {
+                msg["content"]["coinbase"] = buildTxnMsg(t);
+            }
         }
         return msg;
     }
@@ -694,6 +699,7 @@ namespace quantas {
             result.miner = msg["content"]["miner_id"];
             result.prevMiner = msg["content"]["prev_miner_id"];
             result.height = msg["content"]["height"];
+            result.txns.insert(buildTxnFromMsg(msg["content"]["coinbase"]));   // insert coinbase transaction
         }
         // contains txn info
         else if (msg["type"] == MessageType::BLOCK_TXN) {
@@ -767,15 +773,9 @@ namespace quantas {
     }
         
     json BitcoinPeer::buildBlockLog(const Block& b) const {
-        std::string blockId = std::to_string(b.miner) + ":" + std::to_string(b.id) + ":" + std::to_string(b.height) + ":" + std::to_string(b.roundMined);
-        Block prevBlock = getStoredBlock(b.prevId, b.prevMiner);
-        std::string prevId;
-        if (prevBlock.id != -2 && prevBlock.miner != -2) {
-            prevId = std::to_string(prevBlock.miner) + ":" + std::to_string(prevBlock.id) + ":" + std::to_string(prevBlock.height) + ":" + std::to_string(prevBlock.roundMined);
-        }
-        else {
-            prevId = std::to_string(b.prevMiner) + ":" + std::to_string(b.prevId);
-        }
+        std::string blockId = std::to_string(b.miner) + ":" + std::to_string(b.id);
+
+        std::string prevId = std::to_string(b.prevMiner) + ":" + std::to_string(b.prevId);
         json prevIdArr = json::array({prevId});
         json txArray = json::array();
         for (const auto& t : b.txns) {

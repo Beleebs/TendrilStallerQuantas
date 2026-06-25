@@ -11,6 +11,7 @@
 #include <unordered_set>
 #include <deque>
 #include <iostream>
+#include <utility>
 
 #include "../Common/Peer.hpp"
 #include "../Common/Packet.hpp"
@@ -62,7 +63,7 @@ namespace quantas {
 
         // limit txns per block
         bool isFull() const {
-            return txns.size() >= 15;   // can change this value
+            return txns.size() >= 30;   // can change this value
         }
 
         int id = -2;
@@ -94,9 +95,10 @@ namespace quantas {
         std::deque<Transaction> mempool_;
         Block tip_;
         Block candidate_;
+        std::set<std::pair<int, interfaceId>> pendingBlocks_;
         
         // waiting state variables
-        bool isWaiting_ = false;            // locks instream if waiting for CMP_BLOCK or BLOCK_TXN
+        bool isWaiting_ = false;            // locks instream if waiting for BLOCK_TXN
         int waitingBlockId_ = -2;           // these narrow the waiting criteria to the original block it is waiting for
         interfaceId waitingMinerId_ = -2;
 
@@ -153,7 +155,8 @@ namespace quantas {
         json buildTxnLog(const Transaction& b) const;
 
         // network variables
-        std::set<interfaceId> hbnNeighbors_;     // tendrilStaller specific: HBN neighbors
+        std::set<interfaceId> hbnNeighbors_;    // tendrilStaller specific: HBN neighbors
+                                                // NOT DONE YET!!!!!!
     };
 }
 

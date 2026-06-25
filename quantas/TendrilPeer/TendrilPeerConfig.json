@@ -8,12 +8,12 @@
         "id": "bitcoin1",
         "threadCount": 1,
         "parameters": {
-            "mineProbability": 0.01,
-            "txProbability": 0.1
+            "mineProbability": 0.003,
+            "txProbability": 0.005
         },
         "distribution": {
             "type": "uniform",
-            "maxDelay": 1,
+            "maxDelay": 3,
             "maxMsgsRec": 30
         },
         "topology": {
@@ -22,7 +22,7 @@
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,
-        "rounds": 1000
+        "rounds": 500
         }
     ]
 }
