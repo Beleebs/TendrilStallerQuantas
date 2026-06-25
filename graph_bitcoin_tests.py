@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import statistics
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -34,6 +35,7 @@ DEFAULT_METRICS = [
     "blocks_mined_per_round",
     "msgs_sent_per_round",
     "txs_made_per_round",
+    "msg_delay"
 ]
 
 # Allows the script to support slightly different metric names between versions.
@@ -80,11 +82,20 @@ def plot_line(values: list[float], metric_label: str, test_index: int, out_dir: 
     x = list(range(len(values)))
 
     fig, ax = plt.subplots(figsize=(12, 5))
-    ax.plot(x, values)
+    ax.plot(x, values, label="Values", linewidth=1.5)
+    
+    # Add mean and median lines
+    mean_val = statistics.mean(values)
+    median_val = statistics.median(values)
+    
+    ax.axhline(y=mean_val, color='r', linestyle='--', linewidth=1.5, label=f"Mean: {mean_val:.2f}")
+    ax.axhline(y=median_val, color='g', linestyle='--', linewidth=1.5, label=f"Median: {median_val:.2f}")
+    
     ax.set_title(f"Test {test_index}: {metric_label} over time")
     ax.set_xlabel("Round / sample index")
     ax.set_ylabel(metric_label)
     ax.grid(True, alpha=0.3)
+    ax.legend(loc='best')
     
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
@@ -101,6 +112,8 @@ def plot_histogram(values: list[float], metric_label: str, test_index: int, out_
     all_integer_like = all(float(v).is_integer() for v in values)
     min_value = min(values)
     max_value = max(values)
+    mean_val = statistics.mean(values)
+    median_val = statistics.median(values)
 
     if all_integer_like and max_value - min_value <= 100:
         bins = [x - 0.5 for x in range(int(min_value), int(max_value) + 2)]
@@ -108,11 +121,18 @@ def plot_histogram(values: list[float], metric_label: str, test_index: int, out_
         bins = min(50, max(10, int(math.sqrt(len(values)))))
 
     fig, ax = plt.subplots(figsize=(9, 5))
-    ax.hist(values, bins=bins)
+    c, a, bars = ax.hist(values, bins=bins, label="Values")
+    
+    ax.axvline(x=mean_val, color='r', linestyle='--', linewidth=1.5, label=f"Mean: {mean_val:.2f}")
+    ax.axvline(x=median_val, color='g', linestyle='--', linewidth=1.5, label=f"Median: {median_val:.2f}")
+    
+    ax.bar_label(bars, padding=3, fontsize=10, color='black')
+    ax.margins(y=0.1)
     ax.set_title(f"Test {test_index}: {metric_label} distribution")
     ax.set_xlabel(metric_label)
     ax.set_ylabel("Frequency")
     ax.grid(True, alpha=0.3)
+    ax.legend(loc='best')
     
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
@@ -174,7 +194,7 @@ def main() -> None:
             label = actual_key if actual_key == requested_metric else f"{requested_metric} ({actual_key})"
             print(f"  - {label}: {summarize(values)}")
 
-            generated.append(plot_line(values, label, test_index, args.out_dir))
+            # generated.append(plot_line(values, label, test_index, args.out_dir))
             generated.append(plot_histogram(values, label, test_index, args.out_dir))
 
     print("\nGenerated graph files:")

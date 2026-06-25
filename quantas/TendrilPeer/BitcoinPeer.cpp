@@ -62,29 +62,6 @@ namespace quantas {
     }
 
     void BitcoinPeer::performComputation() {
-        // std::string greetingMessage = "Node " + std::to_string(publicId()) + ": ";
-        // int dialogueSelection = rand() % 5;
-        // switch(dialogueSelection) {
-        //     case 0:
-        //         greetingMessage += "Greetings!";
-        //         break;
-        //     case 1:
-        //         greetingMessage += "... hi.";
-        //         break;
-        //     case 2:
-        //         greetingMessage += "yo wsg";
-        //         break;
-        //     case 3:
-        //         greetingMessage += "#fairs";
-        //         break;
-        //     case 4:
-        //         greetingMessage += "HI!!!!!!!!";
-        //         break;
-        //     default:
-        //         greetingMessage += "hello.";
-        // }
-        // QUANTAS_LOG_DEBUG("pc") << greetingMessage;
-
         // // check for incoming messages
         checkInStream();
 
@@ -118,14 +95,45 @@ namespace quantas {
     void BitcoinPeer::endOfExperiment(std::vector<Peer*>& peers) {
         std::vector<BitcoinPeer*> bpeers = reinterpret_cast<std::vector<BitcoinPeer*>&>(peers);
         for (BitcoinPeer* bp : bpeers) {
-            // std::cout << "Ledger Tip for Node " << bp->publicId() << ": " << bp->tip_.miner << ":" << bp->tip_.id << std::endl;
-            // std::cout << "KnownBlocks for Node " << bp->publicId() << ": " << std::endl;
-            // for (const auto& b : bp->knownBlocks_) {
-            //     std::cout << "\t" << b.miner << ":" << b.id << ", (prev: " << b.prevMiner << ":" << b.prevId << ")" << std::endl;
-            // }
-            // std::cout << std::endl;
             bp->logLedger();
         }
+    }
+
+    bool BitcoinPeer::isChainComplete(const Block& b) const {
+        // go backwards until the genesis (where prevId is -2, prevMiner is -2)
+        Block current = b;
+        while (current.prevId != -2 || current.prevMiner != -2) {
+            if (!hasBlock(current.prevId, current.prevMiner)) {
+                return false;
+            }
+            current = getStoredBlock(current.prevId, current.prevMiner);
+        }
+        return true;
+    }
+
+    Block BitcoinPeer::findBestChainTip() const {
+        Block bestTip = tip_;
+        int bestHeight = tip_.height;
+        // goes through each known block, finding a new potential best chain
+        for (const auto& block : knownBlocks_) {
+            if (!isChainComplete(block)) continue;
+            int height = block.height;
+            // compares on height and chronological occurrence (partial ordering to a node's blocks mined (very confusing to say, yeah...))
+            if (height > bestHeight || (height == bestHeight && std::tie(block.miner, block.id) < std::tie(bestTip.miner, bestTip.id))) {
+                bestTip = block;
+                bestHeight = height;
+            }
+        }
+
+        return bestTip;
+    }
+
+    void BitcoinPeer::adoptChain(const Block& newTip) {
+        if (newTip == tip_) {
+            return;
+        }
+        tip_ = newTip;
+        candidate_ = createNewBlock();
     }
 
     Block BitcoinPeer::createNewBlock() {
@@ -138,7 +146,7 @@ namespace quantas {
         b.height = tip_.height + 1;
         // insert the new coinbase transaction
         b.txns.insert(createNewTransaction(-1, publicId()));
-        ++txnsMadeThisRound_;   // debug info
+        // ++txnsMadeThisRound_;   // debug info
         return b;
     }
 
@@ -153,8 +161,8 @@ namespace quantas {
     }
 
     void BitcoinPeer::attemptMine() {
-        int random = rand() % 100 + 1;
-        if (random >= 100 - (100 * mineProbability_)) {
+        int random = rand() % 1000 + 1;
+        if (random >= 1000 - (1000 * mineProbability_)) {
             // debug
             std::string debugOutput = 
                 "Block mined, ID: " + std::to_string(candidate_.id) + 
@@ -219,9 +227,9 @@ namespace quantas {
     }
 
     void BitcoinPeer::attemptTxn() {
-        int random = rand() % 100 + 1;
+        int random = rand() % 1000 + 1;
         // transaction probability is hit
-        if (random >= 100 - (100 * txnProbability_)) {
+        if (random >= 1000 - (1000 * txnProbability_)) {
             Transaction newTx;
             std::set<interfaceId> neighborSet = neighbors();
             if (!neighborSet.empty()) {
@@ -324,6 +332,7 @@ namespace quantas {
     void BitcoinPeer::checkInStream() {
         while (!inStreamEmpty()) {
             Packet p = popInStream();
+            OutputWriter::pushValue("msg_delay", p.getDelay());   // logging msg delay values
             json msg = p.getMessage();
             std::string debugOutput;
             // deal with specifics based on the message type
@@ -334,6 +343,7 @@ namespace quantas {
                     " recieved HEADER from " + std::to_string(p.sourceId()) + 
                     ". (delay: " + std::to_string(p.getDelay()) + ")";
                 QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+                
 
                 int blockId = msg["content"]["block_id"];
                 interfaceId minerId = msg["content"]["miner_id"];
@@ -476,17 +486,18 @@ namespace quantas {
                     knownBlocks_.insert(newBlock);
                     OutputWriter::pushValue("block_received_delay", RoundManager::currentRound() - newBlock.roundMined);
 
-                    // If the new height is greater than the current tip's height, adopt new longest chain
-                    if (tip_.height < newBlock.height) {
+                    // new fork logic: find the best tip in knownblocks, then set THAT as the tip
+                    // better updating system rather than basing fork resolution on height
+                    Block bestTip = findBestChainTip();
+                    if (bestTip != tip_) {
                         // debug
                         debugOutput = 
-                            "newBlock's height: " + std::to_string(newBlock.height) + 
-                            " > tip_'s height: " + std::to_string(tip_.height) +
+                            "New best tip: block id: " + std::to_string(newBlock.id) + 
+                            ", miner id: " + std::to_string(newBlock.miner) +
                             ". Setting as new tip and creating new candidate...";
                         QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
 
-                        tip_ = newBlock;
-                        candidate_ = createNewBlock();
+                        adoptChain(newBlock);
 
                         // debug
                         debugOutput =
@@ -496,12 +507,7 @@ namespace quantas {
                         QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
                     }
                     else {
-                        // debug
-                        debugOutput = 
-                            "newBlock's height: " + std::to_string(newBlock.height) + 
-                            " <= tip_'s height: " + std::to_string(tip_.height) +
-                            ". Keeping candidate.";
-                        QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+                        QUANTAS_LOG_DEBUG("checkInStream") << "newBlock not best tip, keeping current tip...";
                     }
                 }
 
@@ -560,16 +566,16 @@ namespace quantas {
                         OutputWriter::pushValue("block_received_delay", RoundManager::currentRound() - newBlock.roundMined);
 
                         // Same fork logic
-                        if (tip_.height < newBlock.height) {
+                        Block bestTip = findBestChainTip();
+                        if (bestTip != tip_) {
                             // debug
                             debugOutput = 
-                                "newBlock's height: " + std::to_string(newBlock.height) + 
-                                " > tip_'s height: " + std::to_string(tip_.height) +
+                                "New best tip: block id: " + std::to_string(newBlock.id) + 
+                                ", miner id: " + std::to_string(newBlock.miner) +
                                 ". Setting as new tip and creating new candidate...";
                             QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
 
-                            tip_ = newBlock;
-                            candidate_ = createNewBlock();
+                            adoptChain(newBlock);
 
                             // debug
                             debugOutput =
@@ -579,12 +585,7 @@ namespace quantas {
                             QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
                         }
                         else {
-                            // debug
-                            debugOutput = 
-                                "newBlock's height: " + std::to_string(newBlock.height) + 
-                                " <= tip_'s height: " + std::to_string(tip_.height) +
-                                ". Keeping candidate.";
-                            QUANTAS_LOG_DEBUG("checkInStream") << debugOutput;
+                            QUANTAS_LOG_DEBUG("checkInStream") << "newBlock not best tip, keeping current tip...";
                         }
                         isWaiting_ = false;
                         waitingBlockId_ = -2;
@@ -766,15 +767,37 @@ namespace quantas {
     }
         
     json BitcoinPeer::buildBlockLog(const Block& b) const {
-        std::string blockId = std::to_string(b.miner) + ":" + std::to_string(b.id);
-        std::string prevId = std::to_string(b.prevMiner) + ":" + std::to_string(b.prevId);
+        std::string blockId = std::to_string(b.miner) + ":" + std::to_string(b.id) + ":" + std::to_string(b.height) + ":" + std::to_string(b.roundMined);
+        Block prevBlock = getStoredBlock(b.prevId, b.prevMiner);
+        std::string prevId;
+        if (prevBlock.id != -2 && prevBlock.miner != -2) {
+            prevId = std::to_string(prevBlock.miner) + ":" + std::to_string(prevBlock.id) + ":" + std::to_string(prevBlock.height) + ":" + std::to_string(prevBlock.roundMined);
+        }
+        else {
+            prevId = std::to_string(b.prevMiner) + ":" + std::to_string(b.prevId);
+        }
         json prevIdArr = json::array({prevId});
+        json txArray = json::array();
+        for (const auto& t : b.txns) {
+            txArray += buildTxnLog(t);
+        }
 
         json result = {
             {"hash", blockId},
             {"height", b.height},
             {"parents", prevIdArr},
-            {"parasite", false}
+            {"parasite", false},
+            {"round_mined", b.roundMined},
+            {"txns", txArray}
+        };
+        return result;
+    }
+
+    json BitcoinPeer::buildTxnLog(const Transaction& t) const {
+        std::string txnId = std::to_string(t.source) + ":" + std::to_string(t.id);
+        json result = {
+            {"txn_id", txnId},
+            {"round_created", t.roundCreated}
         };
         return result;
     }

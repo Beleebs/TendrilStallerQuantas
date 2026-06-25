@@ -8,8 +8,8 @@
         "id": "delay1",
         "threadCount": 1,
         "parameters": {
-            "mineProbability": 0.01,
-            "txProbability": 0.05
+            "mineProbability": 0.005,
+            "txProbability": 0.01
         },
         "distribution": {
             "type": "uniform",
@@ -28,8 +28,8 @@
         "id": "delay3",
         "threadCount": 1,
         "parameters": {
-            "mineProbability": 0.01,
-            "txProbability": 0.05
+            "mineProbability": 0.005,
+            "txProbability": 0.01
         },
         "distribution": {
             "type": "uniform",
@@ -48,8 +48,8 @@
         "id": "delay5",
         "threadCount": 1,
         "parameters": {
-            "mineProbability": 0.01,
-            "txProbability": 0.05
+            "mineProbability": 0.005,
+            "txProbability": 0.01
         },
         "distribution": {
             "type": "uniform",
@@ -68,8 +68,8 @@
         "id": "delay10",
         "threadCount": 1,
         "parameters": {
-            "mineProbability": 0.01,
-            "txProbability": 0.05
+            "mineProbability": 0.005,
+            "txProbability": 0.01
         },
         "distribution": {
             "type": "uniform",

@@ -56,9 +56,13 @@ namespace quantas {
             return id == rhs.id && miner == rhs.miner;
         }
 
+        bool operator!=(const Block& rhs) const {
+            return !(*this == rhs);
+        }
+
         // limit txns per block
         bool isFull() const {
-            return txns.size() >= 15;
+            return txns.size() >= 15;   // can change this value
         }
 
         int id = -2;
@@ -102,6 +106,14 @@ namespace quantas {
         int txnsMade_ = 0;
         int blocksMined_ = 0;
 
+        // block chain validation functions
+        bool isChainComplete(const Block& b) const;
+        Block findBestChainTip() const;
+        void adoptChain(const Block& newTip);
+
+        // transaction verification functions
+        // need to go back from tip about 6 blocks, then check the transactions.
+
         // block/txn creation functions
         Block createNewBlock();
         Transaction createNewTransaction(const interfaceId& sourceId, const interfaceId& receiverId);
@@ -138,6 +150,7 @@ namespace quantas {
         // json experiment logging
         void logLedger() const;
         json buildBlockLog(const Block& b) const;
+        json buildTxnLog(const Transaction& b) const;
 
         // network variables
         std::set<interfaceId> hbnNeighbors_;     // tendrilStaller specific: HBN neighbors
