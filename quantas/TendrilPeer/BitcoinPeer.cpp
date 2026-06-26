@@ -94,9 +94,17 @@ namespace quantas {
 
     void BitcoinPeer::endOfExperiment(std::vector<Peer*>& peers) {
         std::vector<BitcoinPeer*> bpeers = reinterpret_cast<std::vector<BitcoinPeer*>&>(peers);
+        int txsMade = 0;
+        int blocksMined = 0;
         for (BitcoinPeer* bp : bpeers) {
             bp->logLedger();
+            bp->logTxnConfirmationDelays();
+            txsMade += bp->txnsMade_;
+            blocksMined += bp->blocksMined_;
         }
+
+        OutputWriter::pushValue("total_txs_made", txsMade);
+        OutputWriter::pushValue("total_blocks_mined", blocksMined);
     }
 
     bool BitcoinPeer::isChainComplete(const Block& b) const {
@@ -134,6 +142,54 @@ namespace quantas {
         }
         tip_ = newTip;
         candidate_ = createNewBlock();
+    }
+
+    void BitcoinPeer::logTxnConfirmationDelays() const {
+        json normalTxns = json::array();
+        json coinbaseTxns = json::array();
+
+        for (const auto& b : knownBlocks_) {
+            if (isConfirmedBlock(b)) {
+                for (const auto& t : b.txns) {
+                    std::string tId = std::to_string(t.source) + ":" + std::to_string(t.id);
+                    json entry = {
+                        {"block_id", std::to_string(b.miner) + ":" + std::to_string(b.id)},
+                        {"tx_id", tId},
+                        {"confirmation_delay", b.roundMined - t.roundCreated}
+                    };
+
+                    if (t.source != -1) {
+                        normalTxns.push_back(entry);
+                    }
+                    else {
+                        coinbaseTxns.push_back(entry);
+                    }
+                }
+            }
+        }
+
+        OutputWriter::pushValue("txn_confirmation_delay", normalTxns);
+        OutputWriter::pushValue("cb_txn_confirmation_delay", coinbaseTxns);
+    }
+
+    // 
+    bool BitcoinPeer::isConfirmedBlock(const Block& b) const {
+        Block current = tip_;
+        int depth = 0;
+        // ensures that we go from current tip to end, primarily focusing on longest chain
+        while (current.prevId != -2 || current.prevMiner != -2) {
+            if (current == b) {
+                return depth >= 5;
+            }
+
+            if (!hasBlock(current.prevId, current.prevMiner)) {
+                return false;
+            }
+
+            current = getStoredBlock(current.prevId, current.prevMiner);
+            ++depth;
+        }
+        return false;
     }
 
     Block BitcoinPeer::createNewBlock() {
@@ -185,6 +241,7 @@ namespace quantas {
 
             // build header message
             broadcast(buildHeaderMsg(candidate_));
+            msgsSentThisRound_ += neighbors().size();
             QUANTAS_LOG_TRACE("attemptMine") << "After header broadcast";
 
             // finally update state and continue
@@ -250,7 +307,7 @@ namespace quantas {
             QUANTAS_LOG_DEBUG("attemptTxn") << debugOutput;
             broadcast(newTxMsg);     // standard output, hard to cause GET_BLOCK_TXNs
             // randomMulticast(newTxMsg);  // used for creating GET_BLOCK_TXN requests
-            ++msgsSentThisRound_;
+            msgsSentThisRound_ += neighbors().size();
         }
     }
 
@@ -641,6 +698,7 @@ namespace quantas {
         msg["content"]["miner_id"] = b.miner;
         msg["content"]["prev_miner_id"] = b.prevMiner;
         msg["content"]["height"] = b.height;
+        msg["content"]["tx_ids"] = json::array();
         
         for (const auto& t : b.txns) {
             if (t.source != -1) {   // ignore coinbase
@@ -648,7 +706,7 @@ namespace quantas {
                     {"source_id", t.source},
                     {"tx_id", t.id}
                 };
-                msg["content"]["tx_ids"].push_back(combinedId);
+                msg["content"]["tx_ids"] += combinedId;
             }
             else {
                 msg["content"]["coinbase"] = buildTxnMsg(t);
@@ -735,6 +793,12 @@ namespace quantas {
     // incoming message is type CMP_BLOCK
     bool BitcoinPeer::hasAllCmpBlockTxns(const json& msg) const {
         QUANTAS_LOG_TRACE("hasAllCmpBlockTxns") << "In hasAllCmpBlockTxns for Node: " << publicId();
+
+        if (msg["content"]["tx_ids"].empty()) {
+            QUANTAS_LOG_DEBUG("hasAllCmpBlockTxns") << "Returned True! (empty block)";
+            return true;
+        }
+
         for (const auto& t : msg["content"]["tx_ids"]) {
             QUANTAS_LOG_DEBUG("hasAllCmpBlockTxns") << "Source ID: " << t["source_id"] << ", Txn ID: " << t["tx_id"];
 
@@ -788,6 +852,7 @@ namespace quantas {
             {"parents", prevIdArr},
             {"parasite", false},
             {"round_mined", b.roundMined},
+            {"size", b.txns.size()},
             {"txns", txArray}
         };
         return result;

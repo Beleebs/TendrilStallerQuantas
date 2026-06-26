@@ -63,7 +63,8 @@ namespace quantas {
 
         // limit txns per block
         bool isFull() const {
-            return txns.size() >= 30;   // can change this value
+            // return txns.size() >= 30;   // can change this value
+            return txns.size() >= 500;
         }
 
         int id = -2;
@@ -115,6 +116,8 @@ namespace quantas {
 
         // transaction verification functions
         // need to go back from tip about 6 blocks, then check the transactions.
+        void logTxnConfirmationDelays() const;
+        bool isConfirmedBlock(const Block& b) const;
 
         // block/txn creation functions
         Block createNewBlock();
@@ -156,7 +159,7 @@ namespace quantas {
 
         // network variables
         std::set<interfaceId> hbnNeighbors_;    // tendrilStaller specific: HBN neighbors
-                                                // NOT DONE YET!!!!!!
+                                                // NOT IMPLEMENTED YET!!!!!!
     };
 }
 
