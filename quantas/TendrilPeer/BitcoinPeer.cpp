@@ -59,6 +59,7 @@ namespace quantas {
         }
         std::string finalMsg = "All (" + std::to_string(bpeers.size()) + ") nodes ready to go.\n";
         QUANTAS_LOG_INFO("ip") << finalMsg;
+        OutputWriter::pushValue("max_msg_delay", parameters.value("maxDelay", 1));
     }
 
     void BitcoinPeer::performComputation() {
@@ -96,13 +97,15 @@ namespace quantas {
         std::vector<BitcoinPeer*> bpeers = reinterpret_cast<std::vector<BitcoinPeer*>&>(peers);
         int txsMade = 0;
         int blocksMined = 0;
+        std::set<Block> allLocalLedgerBlocks;
+
         for (BitcoinPeer* bp : bpeers) {
-            bp->logLedger();
-            bp->logTxnConfirmationDelays();
             txsMade += bp->txnsMade_;
             blocksMined += bp->blocksMined_;
+            bp->logLedger();
+            bp->logTxnConfirmationDelays();
         }
-
+        
         OutputWriter::pushValue("total_txs_made", txsMade);
         OutputWriter::pushValue("total_blocks_mined", blocksMined);
     }
@@ -145,8 +148,17 @@ namespace quantas {
     }
 
     void BitcoinPeer::logTxnConfirmationDelays() const {
-        json normalTxns = json::array();
-        json coinbaseTxns = json::array();
+        json normalTxns;
+        json coinbaseTxns;
+        json unconfirmedBlockTxns;
+        json unconfirmedTxns;
+
+        normalTxns["txns"] = json::array();
+        coinbaseTxns["txns"] = json::array();
+        unconfirmedBlockTxns["txns"] = json::array();
+        unconfirmedTxns["txns"] = json::array();
+
+        std::set<Transaction> inBlockTransactions;
 
         for (const auto& b : knownBlocks_) {
             if (isConfirmedBlock(b)) {
@@ -155,21 +167,54 @@ namespace quantas {
                     json entry = {
                         {"block_id", std::to_string(b.miner) + ":" + std::to_string(b.id)},
                         {"tx_id", tId},
-                        {"confirmation_delay", b.roundMined - t.roundCreated}
+                        {"confirmation_delay", b.roundMined - t.roundCreated},
+                        {"round_mined", b.roundMined}
                     };
 
                     if (t.source != -1) {
-                        normalTxns.push_back(entry);
+                        normalTxns["txns"].push_back(entry);
                     }
                     else {
-                        coinbaseTxns.push_back(entry);
+                        coinbaseTxns["txns"].push_back(entry);
                     }
+                    inBlockTransactions.insert(t);
+                }
+            }
+            else {
+                for (const auto& t : b.txns) {
+                    std::string tId = std::to_string(t.source) + ":" + std::to_string(t.id);
+                    json entry = {
+                        {"block_id", std::to_string(b.miner) + ":" + std::to_string(b.id)},
+                        {"tx_id", tId},
+                        {"rounds_unconfirmed", b.roundMined - t.roundCreated},
+                        {"round_mined", b.roundMined}
+                    };
+                    unconfirmedBlockTxns["txns"].push_back(entry);
+                    inBlockTransactions.insert(t);
                 }
             }
         }
 
+        for (const Transaction& t : mempool_) {
+            if (inBlockTransactions.find(t) == inBlockTransactions.end()) {
+                std::string tId = std::to_string(t.source) + ":" + std::to_string(t.id);
+                json entry = {
+                    {"tx_id", tId},
+                    {"rounds_unconfirmed", RoundManager::currentRound() - t.roundCreated}
+                };
+                unconfirmedTxns["txns"].push_back(entry);
+            }
+        }
+
+        normalTxns["count"] = normalTxns["txns"].size();
+        coinbaseTxns["count"] = coinbaseTxns["txns"].size();
+        unconfirmedBlockTxns["count"] = unconfirmedBlockTxns["txns"].size();
+        unconfirmedTxns["count"] = unconfirmedTxns["txns"].size();
+
         OutputWriter::pushValue("txn_confirmation_delay", normalTxns);
         OutputWriter::pushValue("cb_txn_confirmation_delay", coinbaseTxns);
+        OutputWriter::pushValue("unconfirmed_block_txns", unconfirmedBlockTxns);
+        OutputWriter::pushValue("unconfirmed_txns", unconfirmedTxns);
     }
 
     // 
@@ -212,7 +257,7 @@ namespace quantas {
         t.roundCreated = RoundManager::currentRound();
         t.source = sourceId;
         t.receiver = receiverId;
-        ++txnsMade_;
+        // ++txnsMade_;
         return t;
     }
 
@@ -295,12 +340,12 @@ namespace quantas {
                 std::advance(it, index);
                 newTx = createNewTransaction(publicId(), *it);
                 mempool_.push_back(newTx);
-                ++txnsMadeThisRound_;
+                ++txnsMadeThisRound_; ++txnsMade_;
             }
             else {
                 newTx = createNewTransaction(publicId(), -1);
                 mempool_.push_back(newTx);
-                ++txnsMadeThisRound_;
+                ++txnsMadeThisRound_; ++txnsMade_;
             }
             json newTxMsg = buildTxnMsg(newTx);
             std::string debugOutput = "Transaction Made, Source: " + std::to_string(newTx.source) + ", ID: " + std::to_string(newTx.id) + ", Recipient: " + std::to_string(newTx.receiver);
@@ -385,7 +430,6 @@ namespace quantas {
         }
     }
 
-    // TODO: implement message sending between nodes w this
     void BitcoinPeer::checkInStream() {
         while (!inStreamEmpty()) {
             Packet p = popInStream();

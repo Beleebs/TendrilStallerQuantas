@@ -115,7 +115,7 @@ namespace quantas {
         void adoptChain(const Block& newTip);
 
         // transaction verification functions
-        // need to go back from tip about 6 blocks, then check the transactions.
+        // need to go back from tip about 6 blocks, then check the transactions
         void logTxnConfirmationDelays() const;
         bool isConfirmedBlock(const Block& b) const;
 
@@ -135,6 +135,7 @@ namespace quantas {
         bool hasTxn(const int& id, const interfaceId& sourceId) const;
         Block getStoredBlock(const int& id, const interfaceId& minerId) const;
         Transaction getStoredTxn(const int& id, const interfaceId& sourceId) const;
+
 
         // msg sending/receiving
         void checkInStream();
