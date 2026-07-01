@@ -9,8 +9,10 @@
         "threadCount": 1,
         "parameters": {
             "mineProbability": 0.003,
-            "txProbability": 0.005,
-            "maxDelay": 1
+            "txnProbability": 0.05,
+            "maxDelay": 1,
+            "packetLossPercentage": 0.0,
+            "peers": 10
         },
         "distribution": {
             "type": "uniform",
@@ -22,7 +24,7 @@
             "initialPeers": 10,
             "initialPeerType": "BitcoinPeer"
         },
-        "tests": 3,
+        "tests": 5,
         "rounds": 1000
         },
         {
@@ -30,8 +32,10 @@
         "threadCount": 1,
         "parameters": {
             "mineProbability": 0.003,
-            "txProbability": 0.005,
-            "maxDelay": 3
+            "txnProbability": 0.05,
+            "maxDelay": 3,
+            "packetLossPercentage": 0.0,
+            "peers": 10
         },
         "distribution": {
             "type": "uniform",
@@ -43,7 +47,7 @@
             "initialPeers": 10,
             "initialPeerType": "BitcoinPeer"
         },
-        "tests": 3,
+        "tests": 5,
         "rounds": 1000
         },
         {
@@ -51,8 +55,10 @@
         "threadCount": 1,
         "parameters": {
             "mineProbability": 0.003,
-            "txProbability": 0.005,
-            "maxDelay": 5
+            "txnProbability": 0.05,
+            "maxDelay": 5,
+            "packetLossPercentage": 0.0,
+            "peers": 10
         },
         "distribution": {
             "type": "uniform",
@@ -64,7 +70,7 @@
             "initialPeers": 10,
             "initialPeerType": "BitcoinPeer"
         },
-        "tests": 3,
+        "tests": 5,
         "rounds": 1000
         },
         {
@@ -72,8 +78,10 @@
         "threadCount": 1,
         "parameters": {
             "mineProbability": 0.003,
-            "txProbability": 0.005,
-            "maxDelay": 10
+            "txnProbability": 0.05,
+            "maxDelay": 10,
+            "packetLossPercentage": 0.0,
+            "peers": 10
         },
         "distribution": {
             "type": "uniform",
@@ -85,7 +93,7 @@
             "initialPeers": 10,
             "initialPeerType": "BitcoinPeer"
         },
-        "tests": 3,
+        "tests": 5,
         "rounds": 1000
         }
     ]

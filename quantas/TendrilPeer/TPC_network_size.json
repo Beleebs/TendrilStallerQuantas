@@ -5,64 +5,96 @@
     "logging_level": "trace",
     "experiments": [
         {
-        "id": "size10",
-        "threadCount": 4,
+        "id": "size5",
+        "threadCount": 1,
         "parameters": {
-            "mineProbability": 0.02,
-            "txProbability": 0.05
+            "mineProbability": 0.001,
+            "txnProbability": 0.01,
+            "maxDelay": 3,
+            "packetLossPercentage": 0.0,
+            "peers": 5
         },
         "distribution": {
             "type": "uniform",
             "maxDelay": 3,
-            "maxMsgsRec": 50
+            "maxMsgsRec": 30
+        },
+        "topology": {
+            "type": "complete",
+            "initialPeers": 5,
+            "initialPeerType": "BitcoinPeer"
+        },
+        "tests": 2,
+        "rounds": 1000
+        },
+        {
+        "id": "size10",
+        "threadCount": 1,
+        "parameters": {
+            "mineProbability": 0.001,
+            "txnProbability": 0.01,
+            "maxDelay": 3,
+            "packetLossPercentage": 0.0,
+            "peers": 10
+        },
+        "distribution": {
+            "type": "uniform",
+            "maxDelay": 3,
+            "maxMsgsRec": 30
         },
         "topology": {
             "type": "complete",
             "initialPeers": 10,
             "initialPeerType": "BitcoinPeer"
         },
-        "tests": 1,
-        "rounds": 100
+        "tests": 2,
+        "rounds": 1000
         },
         {
         "id": "size50",
-        "threadCount": 4,
+        "threadCount": 1,
         "parameters": {
-            "mineProbability": 0.02,
-            "txProbability": 0.05
+            "mineProbability": 0.001,
+            "txnProbability": 0.01,
+            "maxDelay": 3,
+            "packetLossPercentage": 0.0,
+            "peers": 50
         },
         "distribution": {
             "type": "uniform",
             "maxDelay": 3,
-            "maxMsgsRec": 50
+            "maxMsgsRec": 30
         },
         "topology": {
             "type": "complete",
             "initialPeers": 50,
             "initialPeerType": "BitcoinPeer"
         },
-        "tests": 1,
-        "rounds": 100
+        "tests": 2,
+        "rounds": 1000
         },
         {
         "id": "size100",
-        "threadCount": 4,
+        "threadCount": 1,
         "parameters": {
-            "mineProbability": 0.02,
-            "txProbability": 0.05
+            "mineProbability": 0.001,
+            "txnProbability": 0.01,
+            "maxDelay": 3,
+            "packetLossPercentage": 0.0,
+            "peers": 100
         },
         "distribution": {
             "type": "uniform",
             "maxDelay": 3,
-            "maxMsgsRec": 50
+            "maxMsgsRec": 30
         },
         "topology": {
             "type": "complete",
             "initialPeers": 100,
             "initialPeerType": "BitcoinPeer"
         },
-        "tests": 1,
-        "rounds": 100
+        "tests": 2,
+        "rounds": 1000
         }
     ]
 }

@@ -9,7 +9,10 @@
         "threadCount": 1,
         "parameters": {
             "mineProbability": 0.003,
-            "txProbability": 0.005
+            "txnProbability": 0.05,
+            "maxDelay": 3,
+            "packetLossPercentage": 0.0,
+            "peers": 12
         },
         "distribution": {
             "type": "uniform",
@@ -18,7 +21,7 @@
         },
         "topology": {
             "type": "complete",
-            "initialPeers": 10,
+            "initialPeers": 12,
             "initialPeerType": "BitcoinPeer"
         },
         "tests": 1,

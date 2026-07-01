@@ -97,6 +97,7 @@ namespace quantas {
         Block tip_;
         Block candidate_;
         std::set<std::pair<int, interfaceId>> pendingBlocks_;
+        int prevRoundTipHeight_ = 0;
         
         // waiting state variables
         bool isWaiting_ = false;            // locks instream if waiting for BLOCK_TXN
@@ -104,8 +105,8 @@ namespace quantas {
         interfaceId waitingMinerId_ = -2;
 
         // block/txn creation variables
-        double mineProbability_ = 0.01;
-        double txnProbability_ = 0.2;
+        double mineProbability_ = 0.003;
+        double txnProbability_ = 0.05;
         int txnsMade_ = 0;
         int blocksMined_ = 0;
 
@@ -115,9 +116,8 @@ namespace quantas {
         void adoptChain(const Block& newTip);
 
         // transaction verification functions
-        // need to go back from tip about 6 blocks, then check the transactions
-        void logTxnConfirmationDelays() const;
         bool isConfirmedBlock(const Block& b) const;
+        void removeConfirmedTransactions(const Block& b);
 
         // block/txn creation functions
         Block createNewBlock();
@@ -136,7 +136,6 @@ namespace quantas {
         Block getStoredBlock(const int& id, const interfaceId& minerId) const;
         Transaction getStoredTxn(const int& id, const interfaceId& sourceId) const;
 
-
         // msg sending/receiving
         void checkInStream();
         json buildHeaderMsg(const Block& b) const;
@@ -145,6 +144,7 @@ namespace quantas {
         json buildGetBlockTxnMsg(const Block& b) const;
         json buildBlockTxnMsg(const Block& b) const;
         json buildTxnMsg(const Transaction& t) const;
+        double packetLossPercentage = 0.0;
 
         // building from msg
         Block buildBlockFromMsg(const json& msg) const;
@@ -157,6 +157,9 @@ namespace quantas {
         void logLedger() const;
         json buildBlockLog(const Block& b) const;
         json buildTxnLog(const Transaction& b) const;
+        void logConfirmedBlock(const Block& b) const;
+        void logUnconfirmedBlock(const Block& b) const;
+        void logTxnConfirmationDelays() const;
 
         // network variables
         std::set<interfaceId> hbnNeighbors_;    // tendrilStaller specific: HBN neighbors
